@@ -1,0 +1,38 @@
+#pragma kernel ParticleLoop
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWStructuredBuffer<float2> particlePositions;
+uint nParticlesX;
+uint nParticlesY;
+float time;
+
+///////Tests
+#define PI 3.14159265358979323846
+float step;
+
+float2 Wave (float u, float v, float t) {
+	float2 p;
+	p.x = u;
+	p.y = sin(PI * (u + v + t));
+	return p;
+}
+
+float2 GetUV (uint3 id) {
+	return (id.xy + 0.5) * _Step - 1.0;
+}
+/////////////
+
+void SetParticlePosition (uint3 id, float2 position) {
+    if(id.x < nParticlesX && id.y < nParticlesY)
+    {
+        particlePositions[id.y + id.x * nParticlesY] = position;
+    }
+}
+
+[numthreads(8,8,1)]
+void ParticleLoop (uint3 id : SV_DispatchThreadID)
+{
+    float2 uv = GetUV(id);
+	SetParticlePosition(id, Wave(uv.x, uv.y, _Time));
+}
