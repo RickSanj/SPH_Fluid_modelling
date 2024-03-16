@@ -22,18 +22,24 @@ public class GPUController : MonoBehaviour {
 
     void UpdateTestShader()
     {
-        float step = 2f/nParticlesX;
+        float step = 2f / nParticlesX;
         particleShader.SetFloat(stepId, step);
-        particleShader.SetFloat(timeId, timeId.time);
+        particleShader.SetFloat(timeId, Time.time);
         particleShader.SetInt(nXId, nParticlesX);
         particleShader.SetInt(nYId, nParticlesY);
 
-        computeShader.SetBuffer(0, positionsId, positionsBuffer);
+        particleShader.SetBuffer(0, positionsId, positionsBuffer);
         int groupsX = Mathf.CeilToInt(nParticlesX / 8f);
         int groupsY = Mathf.CeilToInt(nParticlesY / 8f);
-		computeShader.Dispatch(0, groupsX, groupsY, 1);
+		particleShader.Dispatch(0, groupsX, groupsY, 1);
 
-        Graphics.DrawMeshInstancedProcedural(mesh, 0, material);
+        material.SetBuffer(positionsId, positionsBuffer);
+		material.SetFloat(stepId, step);
+
+        var bounds = new Bounds(Vector3.zero, Vector3.right * (2 + 2/nParticlesX) + Vector3.up * (2 + 2/nParticlesY));
+        Graphics.DrawMeshInstancedProcedural(mesh, 0, material, bounds, positionsBuffer.count);
+
+        Debug.Log("Calculating stuff!");
     }    
 
 	[SerializeField, Range(10, 200)]
@@ -42,28 +48,11 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(10, 200)]
 	int nParticlesY = 10;
 
-	[SerializeField]
-	FunctionLibrary.FunctionName function;
-
-	public enum TransitionMode { Cycle, Random }
-
-	[SerializeField]
-	TransitionMode transitionMode = TransitionMode.Cycle;
-
-	[SerializeField, Min(0f)]
-	float functionDuration = 1f, transitionDuration = 1f;
-
-	float duration;
-
-	bool transitioning;
-
-	FunctionLibrary.FunctionName transitionFunction;
-
     void Awake () {
-		positionsBuffer = new ComputeBuffer(nParticles, 2 * 4);
+		positionsBuffer = new ComputeBuffer(nParticlesX, 2 * 4);
 	}
     void OnEnable() {
-		positionsBuffer = new ComputeBuffer(nParticles, 2 * 4);
+		positionsBuffer = new ComputeBuffer(nParticlesY, 2 * 4);
 	}
 
     void OnDisable()
@@ -74,22 +63,6 @@ public class GPUController : MonoBehaviour {
 
 	void Update () 
     {
-        duration += Time.deltaTime;
-        if(duration >= functionDuration)
-        {
-			duration -= functionDuration;
-			transitioning = true;
-			transitionFunction = function;
-			PickNextFunction();
-		}
-
         UpdateTestShader();
-    }
-
-	void PickNextFunction ()
-    {
-        function = transitionMode == TransitionMode.Cycle ?
-			FunctionLibrary.GetNextFunctionName(function) :
-			FunctionLibrary.GetRandomFunctionNameOtherThan(function);
     }
 }
