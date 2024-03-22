@@ -2,6 +2,7 @@
 
 ////To be set from GPU controller
 RWStructuredBuffer<float3> particlePositions;
+RWStructuredBuffer<float3> particleViscosities;
 RWStructuredBuffer<float> particlePressures;
 RWStructuredBuffer<float> particleMasses;
 RWStructuredBuffer<float> particleDensities;
@@ -9,6 +10,7 @@ RWStructuredBuffer<float> particleDensities;
 uint nParticlesX;
 uint nParticlesY;
 float time;
+float viscosityCoefficient;
 
 float3 gravityVector;
 
@@ -49,6 +51,12 @@ float3 WSpikyGradient(float3 deltaPos, h)
 {
 	//TODO: Add kernel code
 }
+
+float WVisch = 0;
+float WViscLaplace(float3 deltaPos, h)
+{
+	//TODO: Add kernel code
+}
 /////////////
 
 ///////Forces
@@ -61,7 +69,7 @@ float GetDensityAtParticle(uint3 id)
 		for(int j = 0; j < nParticlesY; j++)
 		{
 			uint targetParticleIdx = GetIdxFromID(uint3(i, j, 0));
-			density += WPoly(particlePositions[currentParticleIdx] - particlePositions[targetParticleIdx], WPolyh);
+			density += WPoly(particlePositions[currentParticleIdx] - particlePositions[targetParticleIdx], WPolyh) * particleMasses[targetParticleIdx];
 		}
 	}
 }
@@ -89,6 +97,22 @@ float3 GetPressureAtParticle(uint3 id)
 	return -1 * newPressure;
 }
 
+float3 GetViscosityAtParticle(uint3 id)
+{
+	uint currentParticleIdx = GetIdxFromID(id);
+	float3 newViscosity = float3(0,0,0);
+
+	for(int i = 0; i < nParticlesX; i++)
+	{
+		for(int j = 0; j < nParticlesY; j++)
+		{
+			uint targetParticleIdx = GetIdxFromID(uint3(i, j, 0));
+			float3 tempTerm = particleViscosities[targetParticleIdx] - particleViscosities[currentParticleIdx] * (particleMasses[targetParticleIdx]/particleDensities[targetParticleIdx]);
+			tempTerm *= WViscLaplace(particlePositions[currentParticleIdx] - particlePositions[targetParticleIdx], WVisch);
+		}
+	}
+	return viscosityCoefficient * newViscosity;
+}
 /////////////
 
 void SetParticlePosition (uint3 id, float3 position) {
