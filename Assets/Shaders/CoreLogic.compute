@@ -1,36 +1,106 @@
 #pragma kernel ParticleLoop
 
-RWStructuredBuffer<float2> particlePositions;
+////To be set from GPU controller
+RWStructuredBuffer<float3> particlePositions;
+RWStructuredBuffer<float> particlePressures;
+RWStructuredBuffer<float> particleMasses;
+RWStructuredBuffer<float> particleDensities;
+
 uint nParticlesX;
 uint nParticlesY;
 float time;
+
+float3 gravityVector;
 
 ///////Tests
 #define PI 3.14159265358979323846
 float step;
 
-float2 Wave (float u, float v, float t) {
+float3 Wave (float u, float v, float t) {
 	float2 p;
 	p.x = u;
 	p.y = sin(PI * (u + v + t));
+	p.z = 0;
 	return p;
 }
 
-float2 GetUV (uint3 id) {
+float3 GetUV (uint3 id) {
 	return (id.xy + 0.5) * step - 1.0;
 }
 /////////////
 
-void SetParticlePosition (uint3 id, float2 position) {
+//////Util
+uint GetIdxFromID(uint3 id)
+{
+	return id.x * nParticlesY + id.y;
+}
+//////////
+
+///////Kernels
+float WPolyh = 0;
+
+float WPoly(float3 deltaPos, h)
+{
+	//TODO: Add kernel code
+}
+
+float WSpikyh = 0;
+float3 WSpikyGradient(float3 deltaPos, h)
+{
+	//TODO: Add kernel code
+}
+/////////////
+
+///////Forces
+float GetDensityAtParticle(uint3 id)
+{
+	uint currentParticleIdx = GetIdxFromID(id);
+	float density = 0;
+	for(int i = 0; i < nParticlesX; i++)
+	{
+		for(int j = 0; j < nParticlesY; j++)
+		{
+			uint targetParticleIdx = GetIdxFromID(uint3(i, j, 0));
+			density += WPoly(particlePositions[currentParticleIdx] - particlePositions[targetParticleIdx], WPolyh);
+		}
+	}
+}
+
+float3 GetGravityAtParticle(uint3 id)
+{
+	return particleDensities[GetIdxFromID(id)] * gravityVector;
+}
+
+float3 GetPressureAtParticle(uint3 id)
+{
+	uint currentParticleIdx = GetIdxFromID(id);
+	float3 newPressure = float3(0,0,0);
+	for(int i = 0; i < nParticlesX; i++)
+	{
+		for(int j = 0; j < nParticlesY; j++)
+		{
+			uint targetParticleIdx = GetIdxFromID(uint3(i, j, 0));
+			float tempTerm = ((particlePressures[currentParticleIdx] + particlePressures[targetParticleIdx])*particleMasses[targetParticleIdx]) /(2 * particleDensities[targetParticleIdx]);
+			float3 pressureContribution = WSpikyGradient(particlePositions[currentParticleIdx] - particlePositions[targetParticleIdx], WSpikyh) * tempTerm;
+
+			newPressure += pressureContribution;
+		}
+	}
+	return -1 * newPressure;
+}
+
+/////////////
+
+void SetParticlePosition (uint3 id, float3 position) {
     if(id.x < nParticlesX && id.y < nParticlesY)
     {
-        particlePositions[id.y + id.x * nParticlesY] = position;
+        particlePositions[GetIdxFromID(id)] = position;
     }
 }
 
 [numthreads(8,8,1)]
 void ParticleLoop (uint3 id : SV_DispatchThreadID)
 {
-    float2 uv = GetUV(id);
+    float3 uv = GetUV(id);
 	SetParticlePosition(id, Wave(uv.x, uv.y, time));
 }
