@@ -22,7 +22,7 @@ public class GPUController : MonoBehaviour {
 
     void UpdateTestShader()
     {
-        float step = 2f / nParticlesX;
+        float step = 4f / nParticlesX;
         particleShader.SetFloat(stepId, step);
         particleShader.SetFloat(timeId, Time.time);
         particleShader.SetInt(nXId, nParticlesX);
@@ -33,13 +33,11 @@ public class GPUController : MonoBehaviour {
         int groupsY = Mathf.CeilToInt(nParticlesY / 8f);
 		particleShader.Dispatch(0, groupsX, groupsY, 1);
 
+        material.SetFloat(stepId, step);
         material.SetBuffer(positionsId, positionsBuffer);
-		material.SetFloat(stepId, step);
 
-        var bounds = new Bounds(Vector3.zero, Vector3.right * (2 + 2/nParticlesX) + Vector3.up * (2 + 2/nParticlesY));
+        var bounds = new Bounds(Vector3.zero, Vector3.one * (2f + 2f / Mathf.Min(nParticlesX, nParticlesY)));
         Graphics.DrawMeshInstancedProcedural(mesh, 0, material, bounds, positionsBuffer.count);
-
-        Debug.Log("Calculating stuff!");
     }    
 
 	[SerializeField, Range(10, 200)]
@@ -48,11 +46,8 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(10, 200)]
 	int nParticlesY = 10;
 
-    void Awake () {
-		positionsBuffer = new ComputeBuffer(nParticlesX, 2 * 4);
-	}
     void OnEnable() {
-		positionsBuffer = new ComputeBuffer(nParticlesY, 2 * 4);
+		positionsBuffer = new ComputeBuffer(nParticlesY*nParticlesY, 3 * 4);
 	}
 
     void OnDisable()

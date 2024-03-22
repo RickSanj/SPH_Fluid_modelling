@@ -1,5 +1,3 @@
-#pragma kernel ParticleLoop
-
 ////To be set from GPU controller
 RWStructuredBuffer<float3> particlePositions;
 RWStructuredBuffer<float3> particleViscosities;
@@ -11,25 +9,9 @@ uint nParticlesX;
 uint nParticlesY;
 float time;
 float viscosityCoefficient;
-
+float tensionCoefficient;
 float3 gravityVector;
-
-///////Tests
-#define PI 3.14159265358979323846
-float step;
-
-float3 Wave (float u, float v, float t) {
-	float2 p;
-	p.x = u;
-	p.y = sin(PI * (u + v + t));
-	p.z = 0;
-	return p;
-}
-
-float3 GetUV (uint3 id) {
-	return (id.xy + 0.5) * step - 1.0;
-}
-/////////////
+///////////////////////
 
 //////Util
 uint GetIdxFromID(uint3 id)
@@ -38,22 +20,64 @@ uint GetIdxFromID(uint3 id)
 }
 //////////
 
+///////Tests
+#define PI 3.14159265358979323846
+float step;
+
+float3 Wave (float u, float v, float t) {
+	float3 p;
+	p.x = u;
+	p.y = sin(PI * (u + v + t));
+	p.z = v;
+	return p;
+}
+/////////////
+
+float2 GetUV (uint3 id) {
+	return (id.xy + 0.5) * step - 1.0;
+}
+
+void SetParticlePosition(uint3 id, float3 position) {
+    if(id.x < nParticlesX && id.y < nParticlesY)
+    {
+        particlePositions[GetIdxFromID(id)] = position;
+    }
+}
+
+#pragma kernel ParticleLoop 
+[numthreads(8,8,1)]
+void ParticleLoop(uint3 id : SV_DispatchThreadID)
+{
+    float2 uv = GetUV(id);
+	SetParticlePosition(id, Wave(uv.x, uv.y, time));
+}
+
 ///////Kernels
 float WPolyh = 0;
 
-float WPoly(float3 deltaPos, h)
+float WPoly(float3 deltaPos, float h)
+{
+	//TODO: Add kernel code
+}
+
+float3 WPolyGradient(float3 deltaPos, float h)
+{
+	//TODO: Add kernel code
+}
+
+float WPolyLaplace(float3 deltaPos, float h)
 {
 	//TODO: Add kernel code
 }
 
 float WSpikyh = 0;
-float3 WSpikyGradient(float3 deltaPos, h)
+float3 WSpikyGradient(float3 deltaPos, float h)
 {
 	//TODO: Add kernel code
 }
 
 float WVisch = 0;
-float WViscLaplace(float3 deltaPos, h)
+float WViscLaplace(float3 deltaPos, float h)
 {
 	//TODO: Add kernel code
 }
@@ -64,9 +88,9 @@ float GetDensityAtParticle(uint3 id)
 {
 	uint currentParticleIdx = GetIdxFromID(id);
 	float density = 0;
-	for(int i = 0; i < nParticlesX; i++)
+	for(uint i = 0; i < nParticlesX; i++)
 	{
-		for(int j = 0; j < nParticlesY; j++)
+		for(uint j = 0; j < nParticlesY; j++)
 		{
 			uint targetParticleIdx = GetIdxFromID(uint3(i, j, 0));
 			density += WPoly(particlePositions[currentParticleIdx] - particlePositions[targetParticleIdx], WPolyh) * particleMasses[targetParticleIdx];
@@ -83,9 +107,9 @@ float3 GetPressureAtParticle(uint3 id)
 {
 	uint currentParticleIdx = GetIdxFromID(id);
 	float3 newPressure = float3(0,0,0);
-	for(int i = 0; i < nParticlesX; i++)
+	for(uint i = 0; i < nParticlesX; i++)
 	{
-		for(int j = 0; j < nParticlesY; j++)
+		for(uint j = 0; j < nParticlesY; j++)
 		{
 			uint targetParticleIdx = GetIdxFromID(uint3(i, j, 0));
 			float tempTerm = ((particlePressures[currentParticleIdx] + particlePressures[targetParticleIdx])*particleMasses[targetParticleIdx]) /(2 * particleDensities[targetParticleIdx]);
@@ -102,9 +126,9 @@ float3 GetViscosityAtParticle(uint3 id)
 	uint currentParticleIdx = GetIdxFromID(id);
 	float3 newViscosity = float3(0,0,0);
 
-	for(int i = 0; i < nParticlesX; i++)
+	for(uint i = 0; i < nParticlesX; i++)
 	{
-		for(int j = 0; j < nParticlesY; j++)
+		for(uint j = 0; j < nParticlesY; j++)
 		{
 			uint targetParticleIdx = GetIdxFromID(uint3(i, j, 0));
 			float3 tempTerm = particleViscosities[targetParticleIdx] - particleViscosities[currentParticleIdx] * (particleMasses[targetParticleIdx]/particleDensities[targetParticleIdx]);
@@ -113,18 +137,47 @@ float3 GetViscosityAtParticle(uint3 id)
 	}
 	return viscosityCoefficient * newViscosity;
 }
-/////////////
 
-void SetParticlePosition (uint3 id, float3 position) {
-    if(id.x < nParticlesX && id.y < nParticlesY)
-    {
-        particlePositions[GetIdxFromID(id)] = position;
-    }
-}
-
-[numthreads(8,8,1)]
-void ParticleLoop (uint3 id : SV_DispatchThreadID)
+float3 GetTensionNorm(uint3 id)
 {
-    float3 uv = GetUV(id);
-	SetParticlePosition(id, Wave(uv.x, uv.y, time));
+	uint currentParticleIdx = GetIdxFromID(id);
+	float3 newNorm = float3(0,0,0);
+
+	for(uint i = 0; i < nParticlesX; i++)
+	{
+		for(uint j = 0; j < nParticlesY; j++)
+		{
+			uint targetParticleIdx = GetIdxFromID(uint3(i, j, 0));
+			float tempTerm = particleMasses[targetParticleIdx]/particleDensities[targetParticleIdx];
+			float3 normContribution = WPolyGradient(particlePositions[currentParticleIdx] - particlePositions[targetParticleIdx], WPolyh) * tempTerm;
+			newNorm += normContribution;
+		}
+	}
+	return -1 * newNorm; //theoretically minus must be here
 }
+
+float GetTensionLaplacian(uint3 id)
+{
+	uint currentParticleIdx = GetIdxFromID(id);
+	float newLaplacian = 0;
+
+	for(uint i = 0; i < nParticlesX; i++)
+	{
+		for(uint j = 0; j < nParticlesY; j++)
+		{
+			uint targetParticleIdx = GetIdxFromID(uint3(i, j, 0));
+			float tempTerm = particleMasses[targetParticleIdx]/particleDensities[targetParticleIdx];
+			float laplacianContribution = WPolyLaplace(particlePositions[currentParticleIdx] - particlePositions[targetParticleIdx], WPolyh) * tempTerm;
+			newLaplacian += laplacianContribution;
+		}
+	}
+	return newLaplacian;
+}
+
+float3 GetTensionAtPoint(uint3 id)
+{
+	float3 norm = GetTensionNorm(id);
+	return -tensionCoefficient * GetTensionLaplacian(id) * norm / length(norm);
+}
+
+/////////////
