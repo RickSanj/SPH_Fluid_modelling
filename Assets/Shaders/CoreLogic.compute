@@ -1,5 +1,3 @@
-#pragma kernel ParticleLoop
-
 ////To be set from GPU controller
 RWStructuredBuffer<float3> particlePositions;
 RWStructuredBuffer<float3> particleViscosities;
@@ -13,6 +11,14 @@ float time;
 float viscosityCoefficient;
 float tensionCoefficient;
 float3 gravityVector;
+///////////////////////
+
+//////Util
+uint GetIdxFromID(uint3 id)
+{
+	return id.x * nParticlesY + id.y;
+}
+//////////
 
 ///////Tests
 #define PI 3.14159265358979323846
@@ -22,21 +28,29 @@ float3 Wave (float u, float v, float t) {
 	float3 p;
 	p.x = u;
 	p.y = sin(PI * (u + v + t));
-	p.z = 0;
+	p.z = v;
 	return p;
 }
+/////////////
 
 float2 GetUV (uint3 id) {
 	return (id.xy + 0.5) * step - 1.0;
 }
-/////////////
 
-//////Util
-uint GetIdxFromID(uint3 id)
-{
-	return id.x * nParticlesY + id.y;
+void SetParticlePosition(uint3 id, float3 position) {
+    if(id.x < nParticlesX && id.y < nParticlesY)
+    {
+        particlePositions[GetIdxFromID(id)] = position;
+    }
 }
-//////////
+
+#pragma kernel ParticleLoop 
+[numthreads(8,8,1)]
+void ParticleLoop(uint3 id : SV_DispatchThreadID)
+{
+    float2 uv = GetUV(id);
+	SetParticlePosition(id, Wave(uv.x, uv.y, time));
+}
 
 ///////Kernels
 float WPolyh = 0;
@@ -167,17 +181,3 @@ float3 GetTensionAtPoint(uint3 id)
 }
 
 /////////////
-
-void SetParticlePosition (uint3 id, float3 position) {
-    if(id.x < nParticlesX && id.y < nParticlesY)
-    {
-        particlePositions[GetIdxFromID(id)] = position;
-    }
-}
-
-[numthreads(8,8,1)]
-void ParticleLoop (uint3 id : SV_DispatchThreadID)
-{
-    float2 uv = GetUV(id);
-	SetParticlePosition(id, Wave(uv.x, uv.y, time));
-}

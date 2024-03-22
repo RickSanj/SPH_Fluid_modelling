@@ -1,5 +1,5 @@
 #if defined(UNITY_PROCEDURAL_INSTANCING_ENABLED)
-    StructuredBuffer<float2> particlePositions;
+    StructuredBuffer<float3> particlePositions;
 #endif
 
 float step;
@@ -7,10 +7,10 @@ float step;
 void ConfigureProcedural () 
 {
     #if defined(UNITY_PROCEDURAL_INSTANCING_ENABLED)
-    float2 position = particlePositions[unity_InstanceID];
+    float3 position = particlePositions[unity_InstanceID];
 
     unity_ObjectToWorld = 0.0;
-    unity_ObjectToWorld._m03_m13_m23_m33 = float4(position, 0 , 1.0);
+    unity_ObjectToWorld._m03_m13_m23_m33 = float4(position, 1.0);
     unity_ObjectToWorld._m00_m11_m22 = step;
     #endif
 }
