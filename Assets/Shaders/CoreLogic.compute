@@ -31,6 +31,26 @@ float3 Wave (float u, float v, float t) {
 	p.z = v;
 	return p;
 }
+
+float3 MaxwellFlatCircle(float u, float v, float t)
+{
+	float3 pos;
+	pos.x = cos(PI * (u + v + t/10));
+	pos.y = sin(PI * (u + v + t/10));
+
+	if(v > 0.25)
+	{
+		pos.y /= 2;
+	}
+
+	if(u > 0.25)
+	{
+		pos.x /= 2;
+	}
+
+	pos.z = 0;
+	return pos;
+}
 /////////////
 
 float2 GetUV (uint3 id) {
@@ -49,7 +69,7 @@ void SetParticlePosition(uint3 id, float3 position) {
 void ParticleLoop(uint3 id : SV_DispatchThreadID)
 {
     float2 uv = GetUV(id);
-	SetParticlePosition(id, Wave(uv.x, uv.y, time));
+	SetParticlePosition(id, MaxwellFlatCircle(uv.x, uv.y, time));
 }
 
 ///////Kernels
