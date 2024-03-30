@@ -90,31 +90,61 @@ void ParticleLoop(uint3 id : SV_DispatchThreadID)
 ///////Kernels
 float WPolyh = 0;
 
-float WPoly(float3 deltaPos, float h)
-{
-	//TODO: Add kernel code
+float WPoly(float3 deltaPos, float h){
+	float dst = length(deltaPos);
+    if (dst > 0 && dst <= h)
+	{
+		float coefA = 4.0 / (PI*pow(h, 8.0));
+		float v = h*h - dst*dst;
+		return coefA * pow(v, 3.0);
+	}
+	return 0;
 }
 
 float3 WPolyGradient(float3 deltaPos, float h)
 {
-	//TODO: Add kernel code
+	float dst = length(deltaPos);
+    if (dst > 0 && dst <= h)
+	{
+		float coefB = 24.0 / (PI * pow(h, 8.0));
+		return -coefB * deltaPos * pow((h*h - dst*dst), 2.0);
+	}
+	return 0;
 }
 
 float WPolyLaplace(float3 deltaPos, float h)
 {
-	//TODO: Add kernel code
+	float dst = length(deltaPos);
+    if (dst > 0 && dst <= h)
+	{
+		float coefC = 24.0 / (PI * pow(h, 8.0));
+		return -coefC * (h*h - dst*dst) * (3*h*h - 7*dst*dst);
+	}
+	return 0;
 }
 
 float WSpikyh = 0;
 float3 WSpikyGradient(float3 deltaPos, float h)
 {
-	//TODO: Add kernel code
+	float dst = length(deltaPos);
+    if (dst > 0 && dst <= h)
+	{
+		float coefB = 30.0 / (PI * pow(h, 5.0));
+		return (-coefB * deltaPos * pow((h - dst), 2.0)) / dst;
+	}
+	return 0;
 }
 
 float WVisch = 0;
 float WViscLaplace(float3 deltaPos, float h)
 {
-	//TODO: Add kernel code
+	float dst = length(deltaPos);
+    if (dst > 0 && dst <= h)
+	{
+		float coefC = 20.0 / (PI * pow(h, 5.0));
+		return -coefC * (h - dst);
+	}
+	return 0;
 }
 /////////////
 
