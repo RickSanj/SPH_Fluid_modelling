@@ -1,5 +1,9 @@
 #define PI 3.14159265358979323846
 
+#define BOX_SCALE 1.0
+#define BOX_INFLUENCE 0.001
+#define _box_start BOX_SCALE - BOX_INFLUENCE
+
 struct Particle
 {
     float3 position;
@@ -169,6 +173,29 @@ float3 GetTensionAtPoint(uint3 id)
 	float3 norm = GetTensionNorm(id);
 	return -tensionCoefficient * GetTensionLaplacian(id) * norm / length(norm);
 }
+
+float smoothstep(float x, float a, float b) {
+    float frac = (x-a)/(b-a);
+    float max = frac>0 ? frac : 0;
+    float t = max<1 ? max : 1;
+   
+    return t*t*(3-2*t);
+    
+}
+
+
+float3 boxNormalForce(float3 point) {
+    float3 force;
+    float horizontal = smoothstep(abs(point.x), _box_start, BOX_SCALE);
+    float vertical = smoothstep(abs(point.y), _box_start, BOX_SCALE);
+    force.x = -point.x * horizontal;
+    force.y = -point.y * vertical;
+    
+    return force;
+}
+
+
+
 
 /////////////
 #pragma kernel Integrate
