@@ -18,7 +18,7 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(10, 200)]
 	int nParticles = 10;
     float boxSize = 1;
-    float boxCoeff =  0.001;
+    float boxCoeff = 0.001f;
 
     static readonly int
 		positionsId = Shader.PropertyToID("particlePositions"),
