@@ -32,7 +32,6 @@ float radius = 2;
 
 float BOX_SCALE;
 float BOX_INFLUENCE;
-float _box_start = BOX_SCALE - BOX_INFLUENCE;
 
 //////////////////////
 
@@ -179,11 +178,11 @@ float smoothstep(float x, float a, float b) {
     float max = frac>0 ? frac : 0;
     float t = max<1 ? max : 1;
    
-    return t*t*(3-2*t);
-    
+    return t*t*(3-2*t); 
 }
 
 float3 boxNormalForce(float3 point) {
+	float _box_start = BOX_SCALE - BOX_INFLUENCE;
     float3 force;
     float horizontal = smoothstep(abs(point.x), _box_start, BOX_SCALE);
     float vertical = smoothstep(abs(point.y), _box_start, BOX_SCALE);
