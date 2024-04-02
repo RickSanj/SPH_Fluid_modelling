@@ -17,6 +17,8 @@ public class GPUController : MonoBehaviour {
 
     [SerializeField, Range(10, 200)]
 	int nParticles = 10;
+    float boxSize = 1;
+    float boxCoeff =  0.001;
 
     static readonly int
 		positionsId = Shader.PropertyToID("particlePositions"),
@@ -24,6 +26,8 @@ public class GPUController : MonoBehaviour {
 		stepId = Shader.PropertyToID("step"),
         frameID = Shader.PropertyToID("frame"),
         gravityID = Shader.PropertyToID("gravityVector"),
+        boxSizeID = Shader.PropertyToID("BOX_SCALE"),
+        boxCoeffID = Shader.PropertyToID("BOX_INFLUENCE"),
 		timeId = Shader.PropertyToID("time");
 
     int frame = 0;    
@@ -43,10 +47,13 @@ public class GPUController : MonoBehaviour {
         int nGroups = Mathf.CeilToInt(nParticles / 64f);
 		particleShader.Dispatch(0, nGroups, 1, 1);
 
+        particleShader.SetFloat(boxSizeID, boxSize);
+        particleShader.SetFloat(boxCoeffID, boxCoeff);
+
         material.SetFloat(stepId, step);
         material.SetBuffer(positionsId, positionsBuffer);
 
-        var bounds = new Bounds(Vector3.zero, Vector3.one * (2f + 2f / nParticles));
+        var bounds = new Bounds(Vector3.zero, Vector3.one * (boxSize + boxSize / nParticles));
         Graphics.DrawMeshInstancedProcedural(mesh, 0, material, bounds, positionsBuffer.count);
 
         frame++;
