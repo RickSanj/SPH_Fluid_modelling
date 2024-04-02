@@ -1,9 +1,5 @@
 #define PI 3.14159265358979323846
 
-#define BOX_SCALE 1.0
-#define BOX_INFLUENCE 0.001
-#define _box_start BOX_SCALE - BOX_INFLUENCE
-
 struct Particle
 {
     float3 position;
@@ -33,6 +29,10 @@ float timestep = 1;
 float3 BoxSize; // set it later
 float particleMass= 2.0;
 float radius = 2;
+
+float BOX_SCALE;
+float BOX_INFLUENCE;
+float _box_start = BOX_SCALE - BOX_INFLUENCE;
 
 //////////////////////
 
@@ -183,7 +183,6 @@ float smoothstep(float x, float a, float b) {
     
 }
 
-
 float3 boxNormalForce(float3 point) {
     float3 force;
     float horizontal = smoothstep(abs(point.x), _box_start, BOX_SCALE);
@@ -193,10 +192,6 @@ float3 boxNormalForce(float3 point) {
     
     return force;
 }
-
-
-
-
 /////////////
 #pragma kernel Integrate
 [numthreads(64,1,1)]
