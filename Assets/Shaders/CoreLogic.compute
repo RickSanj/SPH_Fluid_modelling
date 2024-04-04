@@ -98,8 +98,9 @@ float GetDensityAtParticle(uint3 id)
 	float density = 0;
 	for(uint i = 0; i < nParticles; i++)
 	{
-		density += WPoly(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh) * particleMass;
+		density += WPoly(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh);
 	}
+	return density*particleMass;
 }
 
 float3 GetGravityAtParticle(uint3 id)
@@ -141,11 +142,10 @@ float3 GetTensionNorm(uint3 id)
 
 	for(uint i = 0; i < nParticles; i++)
 	{
-		float tempTerm = particleMass/particleRead[i].density;
-		float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh) * tempTerm;
+		float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh)/particleRead[i].density;
 		newNorm += normContribution;
 	}
-	return -1 * newNorm; //theoretically minus must be here
+	return -1 * newNorm * particleMass; //theoretically minus must be here
 }
 
 float GetTensionLaplacian(uint3 id)
@@ -155,11 +155,10 @@ float GetTensionLaplacian(uint3 id)
 
 	for(uint i = 0; i < nParticles; i++)
 	{
-		float tempTerm = particleMass/particleRead[i].density;
-		float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh) * tempTerm;
+		float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh)/particleRead[i].density;
 		newLaplacian += laplacianContribution;
 	}
-	return newLaplacian;
+	return newLaplacian * particleMass;
 }
 
 float3 GetTensionAtPoint(uint3 id)
