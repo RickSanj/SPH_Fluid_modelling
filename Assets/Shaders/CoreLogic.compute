@@ -57,7 +57,7 @@ float3 WPolyGradient(float3 deltaPos, float h)
 		float coefB = 24.0 / (PI * pow(h, 8.0));
 		return -coefB * deltaPos * pow((h*h - dst*dst), 2.0);
 	}
-	return 0;
+	return float3(0.0, 0.0, 0.0);
 }
 
 float WPolyLaplace(float3 deltaPos, float h)
@@ -80,7 +80,7 @@ float3 WSpikyGradient(float3 deltaPos, float h)
 		float coefB = 30.0 / (PI * pow(h, 5.0));
 		return (-coefB * deltaPos * pow((h - dst), 2.0)) / dst;
 	}
-	return 0;
+	return float3(0.0, 0.0, 0.0);
 }
 
 float WVisch = 0;
