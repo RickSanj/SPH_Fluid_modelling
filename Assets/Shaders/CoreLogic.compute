@@ -13,11 +13,6 @@ RWStructuredBuffer<Particle> particleRead;
 RWStructuredBuffer<Particle> particleWrite;
 
 ////To be set from GPU controller
-// RWStructuredBuffer<float3> particlePositions;
-// RWStructuredBuffer<float3> particleViscosities;
-// RWStructuredBuffer<float> particlePressures;
-// RWStructuredBuffer<float> particleMasses;
-// RWStructuredBuffer<float> particleDensities;
 
 uint nParticles;
 float time;
