@@ -274,12 +274,9 @@ void Integrate (uint3 id : SV_DispatchThreadID)
     //     currentParticle.position.z = boxMax.z - radius;
     //     currentParticle.velocity.z *= -1;
     // }
-
-
 }
 
 #pragma kernel InitParticles
-
 [numthreads(64,1,1)]
 void InitParticles (uint3 id : SV_DispatchThreadID) {
     if (id.x >= nParticles) return;
@@ -294,33 +291,3 @@ void InitParticles (uint3 id : SV_DispatchThreadID) {
 	// float2 uv = GetUV(id);
 	// SetParticlePosition(id, MaxwellFlatCircle(uv.x, uv.y, time));
 }
-
-///////OldButGold
-float3 MaxwellFlatCircle(float u, float v, float t)
-{
-	float3 pos;
-	pos.x = cos(PI * (u + v + t/10));
-	pos.y = sin(PI * (u + v + t/10));
-
-	if(v > 0.25)
-	{
-		pos.y /= 2;
-	}
-
-	if(u > 0.25)
-	{
-		pos.x /= 2;
-	}
-
-	pos.z = 0;
-	return pos;
-}
-
-//#pragma kernel ParticleLoop 
-// [numthreads(8,8,1)]
-// void ParticleLoop(uint3 id : SV_DispatchThreadID)
-// {
-//     float2 uv = GetUV(id);
-// 	SetParticlePosition(id, MaxwellFlatCircle(uv.x, uv.y, time));
-// }
-/////////////
