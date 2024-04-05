@@ -30,6 +30,18 @@ float BOX_INFLUENCE;
 
 //////////////////////
 
+//////Util/////
+uint pcg(uint v) {
+	uint state = v * 747796405u + 2891336453u;
+	uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+	return (word >> 22u) ^ word;
+  }
+  
+float pcgf(uint v) {
+return float(pcg(v)) / float(0xffffffffu);
+}
+/////////////
+
 ///////Kernels
 float WPolyh = 0;
 
@@ -234,19 +246,29 @@ void Integrate (uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= nParticles) return;
 
-    Particle currentParticle = particleRead[id.x];
-    float3 totalForce = float3(0.0, 0.0, 0.0);
-
-    totalForce += GetPressureAtParticle(id);
-    totalForce += GetViscosityAtParticle(id);
-    totalForce += GetTensionAtPoint(id);
-    totalForce += GetGravityAtParticle(id);
-
-    float3 acceleration = totalForce / currentParticle.density;
-
-    currentParticle.velocity += acceleration * timestep;
-    currentParticle.position += currentParticle.velocity * timestep;
-    particleWrite[id.x] = currentParticle;
+	Particle currentParticle = particleRead[id.x];
+	if(frame == 0)
+	{
+		currentParticle.velocity = float3(0,0,0);
+		currentParticle.pressure = 0;
+		currentParticle.density = 0;
+		//set random initial positions
+		currentParticle.position = float3(pcgf(id.x), pcgf(id.x+1), 0.0);
+	} else 
+	{
+		float3 totalForce = float3(0.0, 0.0, 0.0);
+	
+		totalForce += GetPressureAtParticle(id);
+		totalForce += GetViscosityAtParticle(id);
+		totalForce += GetTensionAtPoint(id);
+		totalForce += GetGravityAtParticle(id);
+	
+		float3 acceleration = totalForce / currentParticle.density;
+	
+		currentParticle.velocity += acceleration * timestep;
+		currentParticle.position += currentParticle.velocity * timestep;
+		particleWrite[id.x] = currentParticle;
+	}
     // float3 boxMin = -BoxSize / 2;
     // float3 boxMax = BoxSize / 2;
     
@@ -276,18 +298,18 @@ void Integrate (uint3 id : SV_DispatchThreadID)
     // }
 }
 
-#pragma kernel InitParticles
-[numthreads(64,1,1)]
-void InitParticles (uint3 id : SV_DispatchThreadID) {
-    if (id.x >= nParticles) return;
+// #pragma kernel InitParticles
+// [numthreads(64,1,1)]
+// void InitParticles (uint3 id : SV_DispatchThreadID) {
+//     if (id.x >= nParticles) return;
 
-    Particle p;
-    p.position = float3(id.x * 0.1, 0, 0);
-    p.velocity = float3(0.1, 0, 0);
-	p.viscosity = 1;
-	p.pressure = 0;
-	p.density = 0.1;
-    particleWrite[id.x] = p;
-	// float2 uv = GetUV(id);
-	// SetParticlePosition(id, MaxwellFlatCircle(uv.x, uv.y, time));
-}
+//     Particle p;
+//     p.position = float3(id.x * 0.1, 0, 0);
+//     p.velocity = float3(0.1, 0, 0);
+// 	p.viscosity = 1;
+// 	p.pressure = 0;
+// 	p.density = 0.1;
+//     particleWrite[id.x] = p;
+// 	// float2 uv = GetUV(id);
+// 	// SetParticlePosition(id, MaxwellFlatCircle(uv.x, uv.y, time));
+// }
