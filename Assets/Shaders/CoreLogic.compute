@@ -1,3 +1,4 @@
+#pragma enable_d3d11_debug_symbols
 #define PI 3.14159265358979323846
 
 struct Particle
@@ -7,7 +8,6 @@ struct Particle
 	float3 viscosity;
     float pressure;
     float density;
-	float currentForce;
 };
 RWStructuredBuffer<float3> particlePositions;
 RWStructuredBuffer<Particle> particleRead;
@@ -18,10 +18,10 @@ RWStructuredBuffer<Particle> particleWrite;
 uint nParticles;
 float time;
 uint frame;
-float viscosityCoefficient;
+float viscosityCoefficient = 0.005;;
 float tensionCoefficient;
 float3 gravityVector;
-float timestep = 0.005;
+float timeStep = 0.0005;
 float3 BoxSize;
 float particleMass= 2.0;
 float radius = 2;
@@ -116,6 +116,7 @@ float WViscLaplace(float3 deltaPos, float h)
 	}
 	return 0;
 }
+
 float radius4 = 16;
 float radius5 = 32;
 float SpikyKernelFirstDerivative(float distance)
@@ -144,6 +145,7 @@ float GetDensityAtParticle(uint3 id)
 	float density = 0;
 	for(uint i = 0; i < nParticles; i++)
 	{
+		if(i == currentParticleIdx){continue;}
 		density += WPoly(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh);
 	}
 	return density*particleMass;
@@ -160,6 +162,7 @@ float3 GetPressureAtParticle(uint3 id)
 	float3 newPressure = float3(0,0,0);
 	for(uint i = 0; i < nParticles; i++)
 	{
+		if(i == currentParticleIdx){continue;}
 		float tempTerm = ((particleRead[currentParticleIdx].pressure + particleRead[i].pressure)*particleMass) /(2 * particleRead[i].density);
 		float3 pressureContribution = WSpikyGradient(particleRead[currentParticleIdx].position - particleRead[i].position, WSpikyh) * tempTerm;
 
@@ -175,6 +178,7 @@ float3 GetViscosityAtParticle(uint3 id)
 
 	for(uint i = 0; i < nParticles; i++)
 	{
+		if(i == currentParticleIdx){continue;}
 		float3 tempTerm = particleRead[i].viscosity - particleRead[currentParticleIdx].viscosity * (particleMass/particleRead[i].density);
 		tempTerm *= WViscLaplace(particleRead[currentParticleIdx].position - particleRead[i].position, WVisch);
 	}
@@ -188,10 +192,11 @@ float3 GetTensionNorm(uint3 id)
 
 	for(uint i = 0; i < nParticles; i++)
 	{
+		if(i == currentParticleIdx){continue;}
 		float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh)/particleRead[i].density;
 		newNorm += normContribution;
 	}
-	return -1 * newNorm * particleMass; //theoretically minus must be here
+	return -1 * newNorm * particleMass;
 }
 
 float GetTensionLaplacian(uint3 id)
@@ -201,6 +206,7 @@ float GetTensionLaplacian(uint3 id)
 
 	for(uint i = 0; i < nParticles; i++)
 	{
+		if(i == currentParticleIdx){continue;}
 		float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh)/particleRead[i].density;
 		newLaplacian += laplacianContribution;
 	}
@@ -221,97 +227,180 @@ float smoothstep(float x, float a, float b) {
     return t*t*(3-2*t); 
 }
 
-float3 boxNormalForce(float3 curPoint) {
+float3 GetBoxNormalForce(uint3 curPoint) {
 	float _box_start = BOX_SCALE - BOX_INFLUENCE;
     float3 force;
     float horizontal = smoothstep(abs(curPoint.x), _box_start, BOX_SCALE);
     float vertical = smoothstep(abs(curPoint.y), _box_start, BOX_SCALE);
     force.x = -curPoint.x * horizontal;
     force.y = -curPoint.y * vertical;
+	force.z = 0;
     
     return force;
 }
 
-float viscosity = 200;
-void ComputeForces (uint3 id)
+//need to add gradient spline kernel 
+float3 CalculateAcceleration(uint3 particleId)
 {
-    float3 origin = particleRead[id.x].position;
-    float density2 = particleRead[id.x].density * particleRead[id.x].density; 
-    float3 pressure = float3(0,0,0);
-    float3 visc = float3(0,0,0);
-    float mass2 = particleMass * particleMass;
+	float3 acceleration = float3(0,0,0);
+	uint currentParticleIdx = particleId.x;
+	for(uint j = 0; j < nParticles; j++)
+	{
+		if(j == currentParticleIdx){continue;}
 
-    for (int i = 0; i < nParticles; ++i) {
-        
-        if (origin.x == particleRead[i].position.x && origin.y == particleRead[i].position.y && origin.z == particleRead[i].position.z) {
-            continue;
-        }
+		float tempTerm = particleMass * (particleRead[currentParticleIdx].pressure/pow(particleRead[currentParticleIdx].density, 2) + particleRead[j].pressure/pow(particleRead[j].density, 2));
+		float3 accelerationContribution = tempTerm * WPolyGradient(particleRead[currentParticleIdx].position - particleRead[j].position, WPolyh);
+		acceleration += accelerationContribution;
 
-        float dist = distance(particleRead[i].position, origin);
-        if (dist < radius*2) {
-            float3 pressureGradientDirection = normalize(particleRead[id.x].position-particleRead[i].position);
-            pressure += mass2 * ( particleRead[id.x].pressure / density2 + particleRead[i].pressure / ( particleRead[i].density * particleRead[i].density ) ) * SpikyKernelGradient(dist, pressureGradientDirection);
-            visc += viscosity * mass2 * ( particleRead[i].velocity - particleRead[id.x].velocity ) / particleRead[i].density * SpikyKernelSecondDerivative(dist);
-        }
-    }
+		float3 deltaPos = particleRead[currentParticleIdx].position - particleRead[j].position;
+		float weight = WPoly(deltaPos, WPolyh);
+		float3 dir = deltaPos / max(length(deltaPos), 0.0001);
+		float3 relativeVelocity = particleRead[currentParticleIdx].velocity - particleRead[j].velocity;
+		acceleration -= viscosityCoefficient * dot(relativeVelocity, dir) * weight * dir;
+	}
 
-    particleWrite[id.x].currentForce = float3(0,(-9.81 * particleMass), 0) - pressure + visc;
+	float3 newPressure = GetPressureAtParticle(particleId);
+	//float3 newViscosity = GetViscosityAtParticle(particleId);
+	float3 newGravity = GetGravityAtParticle(particleId);
+	float3 newTension = GetTensionAtPoint(particleId);
+	//float3 newDensity = GetDensityAtParticle(particleId);
+	float3 newNormal = GetBoxNormalForce(particleId);
 
-    // Handle Collision
+	acceleration *= -1;
+	acceleration += (particleRead[currentParticleIdx].density + /*newViscosity +*/ newGravity + newTension + newPressure + newNormal)/particleMass;
 
-    // float3 colDir = particleRead[id.x].position-spherePos;
-    // if (length(colDir) < sphereRadius) {
-    //     float mag = sphereRadius/length(colDir);
-    //     particleRead[id.x].currentForce += colDir*300*mag;
-    // }
+	//particleWrite[currentParticleIdx].viscosity = newViscosity;
+	particleWrite[currentParticleIdx].pressure = length(newPressure);
+	//particleWrite[currentParticleIdx].density = length(newDensity);
 
-    // + pressure + visc/_particles[id.x].density;
+	return acceleration;
 }
+
 #pragma kernel ParticleLoop 
 [numthreads(64,1,1)]
 void ParticleLoop(uint3 id : SV_DispatchThreadID)
 {
-	Particle prevParticle = particleRead[id.x];
-	Particle currentParticle = particleWrite[id.x];
+	uint currentParticleIdx = id.x;
+	if(currentParticleIdx >= nParticles){return;}
+
+	Particle prevParticle = particleRead[currentParticleIdx];
 	if(frame == 0)
 	{
-		prevParticle.pressure = 0;
-		prevParticle.density = 0;
-		prevParticle.currentForce = 0;
-		float3 viscosity = 0;
-		float2 seed = float2(id.x, frame);
-		prevParticle.position = float3(pcgf(id.x), pcgf(id.x+1), 0.0);
-		prevParticle.velocity = float3(rand(seed + 2.0), rand(seed + 3.0), rand(seed + 4.0)) * 2.0 - 1.0;
-	}
-	else
+		prevParticle.velocity = float3(0.0,0.0,0.0);
+		prevParticle.position = float3(pcgf(currentParticleIdx), pcgf(currentParticleIdx+5), 0.0);
+		prevParticle.viscosity = float3(1.0,1.0,1.0);
+		prevParticle.pressure = 1;
+		prevParticle.density = 1;
+
+		particleRead[currentParticleIdx] = prevParticle;
+	} else
 	{
-		float3 force = 0;
-		float3 vel = 0;
-		for(uint i = 0; i < nParticles; i++)
-		{
-			Particle targetParticle = particleRead[i];
-			if (targetParticle.position.x == particleRead[i].position.x && targetParticle.position.y == particleRead[i].position.y && targetParticle.position.z == particleRead[i].position.z) {
-				continue;
-			}
-			ComputeForces(id);
-			float3 deltaPos = prevParticle.position - targetParticle.position;
-			float dst = length(deltaPos) + 0.0001;
-			//compute gravitational force
-			// force -= 0.00001*deltaPos / pow(dst, 3);
-			vel += prevParticle.velocity + ((prevParticle.currentForce/particleMass) *0.005);
-			// prevParticle.position += vel * 0.005;
-			// prevParticle.velocity = vel;
-		}
-		prevParticle.position += vel * 0.005;
-		prevParticle.velocity = vel;
-	
-		
-		// prevParticle.velocity += force * 0.005;
-		// prevParticle.position += prevParticle.velocity * 0.005;
+		float3 frameAcceleration = CalculateAcceleration(id);
+		prevParticle.velocity += timeStep * frameAcceleration;
+		prevParticle.position += prevParticle.velocity * timeStep;
 	}
 
-	
-	particleWrite[id.x] = prevParticle;
-    particlePositions[id.x] = prevParticle.position;
+	particleWrite[currentParticleIdx] = prevParticle;
+	particlePositions[currentParticleIdx] = prevParticle.position;
 }
 
+#pragma kernel ParticleDensity
+[numthreads(64,1,1)]
+void ParticleDensity(uint3 id : SV_DispatchThreadID)
+{
+	uint currentParticleIdx = id.x;
+	if(currentParticleIdx >= nParticles){return;}
+
+	Particle particle = particleRead[currentParticleIdx];
+
+	float density = GetDensityAtParticle(id);
+
+	particle.density = density;
+
+	particleWrite[currentParticleIdx] = particle;
+}
+
+
+/////Integration/////
+// float viscosity = 200;
+// void ComputeForces (uint3 id)
+// {
+//     float3 origin = particleRead[id.x].position;
+//     float density2 = particleRead[id.x].density * particleRead[id.x].density; 
+//     float3 pressure = float3(0,0,0);
+//     float3 visc = float3(0,0,0);
+//     float mass2 = particleMass * particleMass;
+
+//     for (int i = 0; i < nParticles; ++i) {
+        
+//         if (origin.x == particleRead[i].position.x && origin.y == particleRead[i].position.y && origin.z == particleRead[i].position.z) {
+//             continue;
+//         }
+
+//         float dist = distance(particleRead[i].position, origin);
+//         if (dist < radius*2) {
+//             float3 pressureGradientDirection = normalize(particleRead[id.x].position-particleRead[i].position);
+//             pressure += mass2 * ( particleRead[id.x].pressure / density2 + particleRead[i].pressure / ( particleRead[i].density * particleRead[i].density ) ) * SpikyKernelGradient(dist, pressureGradientDirection);
+//             visc += viscosity * mass2 * ( particleRead[i].velocity - particleRead[id.x].velocity ) / particleRead[i].density * SpikyKernelSecondDerivative(dist);
+//         }
+//     }
+
+//     particleWrite[id.x].currentForce = float3(0,(-9.81 * particleMass), 0) - pressure + visc;
+
+//     // Handle Collision
+
+//     // float3 colDir = particleRead[id.x].position-spherePos;
+//     // if (length(colDir) < sphereRadius) {
+//     //     float mag = sphereRadius/length(colDir);
+//     //     particleRead[id.x].currentForce += colDir*300*mag;
+//     // }
+
+//     // + pressure + visc/_particles[id.x].density;
+// }
+// #pragma kernel ParticleLoop 
+// [numthreads(64,1,1)]
+// void ParticleLoop(uint3 id : SV_DispatchThreadID)
+// {
+// 	Particle prevParticle = particleRead[id.x];
+// 	Particle currentParticle = particleWrite[id.x];
+// 	if(frame == 0)
+// 	{
+// 		prevParticle.pressure = 0;
+// 		prevParticle.density = 0;
+// 		prevParticle.currentForce = 0;
+// 		float3 viscosity = 0;
+// 		float2 seed = float2(id.x, frame);
+// 		prevParticle.position = float3(pcgf(id.x), pcgf(id.x+1), 0.0);
+// 		prevParticle.velocity = float3(rand(seed + 2.0), rand(seed + 3.0), rand(seed + 4.0)) * 2.0 - 1.0;
+// 	}
+// 	else
+// 	{
+// 		float3 force = 0;
+// 		float3 vel = 0;
+// 		for(uint i = 0; i < nParticles; i++)
+// 		{
+// 			Particle targetParticle = particleRead[i];
+// 			if (targetParticle.position.x == particleRead[i].position.x && targetParticle.position.y == particleRead[i].position.y && targetParticle.position.z == particleRead[i].position.z) {
+// 				continue;
+// 			}
+// 			ComputeForces(id);
+// 			float3 deltaPos = prevParticle.position - targetParticle.position;
+// 			float dst = length(deltaPos) + 0.0001;
+// 			//compute gravitational force
+// 			// force -= 0.00001*deltaPos / pow(dst, 3);
+// 			vel += prevParticle.velocity + ((prevParticle.currentForce/particleMass) *0.005);
+// 			// prevParticle.position += vel * 0.005;
+// 			// prevParticle.velocity = vel;
+// 		}
+// 		prevParticle.position += vel * 0.005;
+// 		prevParticle.velocity = vel;
+	
+		
+// 		// prevParticle.velocity += force * 0.005;
+// 		// prevParticle.position += prevParticle.velocity * 0.005;
+// 	}
+
+	
+// 	particleWrite[id.x] = prevParticle;
+//     particlePositions[id.x] = prevParticle.position;
+// }
