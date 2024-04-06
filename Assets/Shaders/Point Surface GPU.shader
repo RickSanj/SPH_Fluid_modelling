@@ -19,7 +19,6 @@ Shader "Graph/Point Surface GPU" {
 		float _Smoothness;
 
 		void ConfigureSurface (Input input, inout SurfaceOutputStandard surface) {
-			//uncomment to disable maxwell
 			surface.Albedo.rg = saturate(input.worldPos.xy * 0.5 + 0.5);
 			surface.Smoothness = _Smoothness;
 		}

@@ -29,6 +29,10 @@ float radius = 2;
 float BOX_SCALE;
 float BOX_INFLUENCE;
 
+float WPolyh = 0;
+float WSpikyh = 0;
+float WVisch = 0;
+
 //////////////////////
 
 //////Util/////
@@ -41,10 +45,22 @@ uint pcg(uint v) {
 float pcgf(uint v) {
 return float(pcg(v)) / float(0xffffffffu);
 }
+
+uint hash(uint x) {
+    x += (x << 10u);
+    x ^= (x >> 6u);
+    x += (x << 3u);
+    x ^= (x >> 11u);
+    x += (x << 15u);
+    return x;
+}
+
+float rand(uint seed) {
+    return frac(sin(hash(seed)) * 43758.5453);
+}
 /////////////
 
 ///////Kernels
-float WPolyh = 0;
 
 float WPoly(float3 deltaPos, float h){
 	float dst = length(deltaPos);
@@ -79,7 +95,6 @@ float WPolyLaplace(float3 deltaPos, float h)
 	return 0;
 }
 
-float WSpikyh = 0;
 float3 WSpikyGradient(float3 deltaPos, float h)
 {
 	float dst = length(deltaPos);
@@ -91,7 +106,6 @@ float3 WSpikyGradient(float3 deltaPos, float h)
 	return float3(0.0, 0.0, 0.0);
 }
 
-float WVisch = 0;
 float WViscLaplace(float3 deltaPos, float h)
 {
 	float dst = length(deltaPos);
@@ -217,22 +231,9 @@ float3 boxNormalForce(float3 curPoint) {
     
     return force;
 }
-uint hash(uint x) {
-    x += (x << 10u);
-    x ^= (x >> 6u);
-    x += (x << 3u);
-    x ^= (x >> 11u);
-    x += (x << 15u);
-    return x;
-}
-
-float rand(uint seed) {
-    return frac(sin(hash(seed)) * 43758.5453);
-}
 
 float viscosity = 200;
-[numthreads(64,1,1)]
-void ComputeForces (uint3 id: SV_DISPATCHTHREADID)
+void ComputeForces (uint3 id)
 {
     float3 origin = particleRead[id.x].position;
     float density2 = particleRead[id.x].density * particleRead[id.x].density; 

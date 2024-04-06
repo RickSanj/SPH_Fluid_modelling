@@ -17,6 +17,15 @@ public class GPUController : MonoBehaviour {
 
     [SerializeField, Range(10, 200)]
 	int nParticles = 10;
+
+    [SerializeField, Range(0, 10)]
+    float WPolyh = 0;
+    [SerializeField, Range(0, 10)]
+    float WSpikyh = 0;
+    [SerializeField, Range(0, 10)]
+    float WVisch = 0;
+
+
     float boxSize = 1;
     float boxCoeff = 0.001f;
 
@@ -28,6 +37,9 @@ public class GPUController : MonoBehaviour {
         gravityID = Shader.PropertyToID("gravityVector"),
         boxSizeID = Shader.PropertyToID("BOX_SCALE"),
         boxCoeffID = Shader.PropertyToID("BOX_INFLUENCE"),
+        WPolyhID = Shader.PropertyToID("WPolyh"),
+        WSpikyhID = Shader.PropertyToID("WSpikyh"),
+        WVischID = Shader.PropertyToID("WVisch"),
 		timeId = Shader.PropertyToID("time");
 
     int frame = 0;    
@@ -40,6 +52,9 @@ public class GPUController : MonoBehaviour {
         particleShader.SetInt(nParticlesID, nParticles);
         particleShader.SetInt(frameID, frame);
         particleShader.SetVector(gravityID, Vector3.down);
+        particleShader.SetFloat(WPolyhID, WPolyh);
+        particleShader.SetFloat(WSpikyhID, WSpikyh);
+        particleShader.SetFloat(WVischID, WVisch);
 
         particleShader.SetBuffer(0, positionsId, positionsBuffer);
         particleShader.SetBuffer(0, "particleRead", frame % 2 == 0 ? particle0 : particle1);
@@ -57,7 +72,14 @@ public class GPUController : MonoBehaviour {
         Graphics.DrawMeshInstancedProcedural(mesh, 0, material, bounds, positionsBuffer.count);
 
         frame++;
-    }    
+    }  
+
+    void OnDrawGizmos()
+    {
+        var bounds = Vector3.one * (boxSize + boxSize / nParticles);
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireCube(Vector3.zero, bounds);
+    }  
 
     void OnEnable() {
 		positionsBuffer = new ComputeBuffer(nParticles, 3 * 4);
