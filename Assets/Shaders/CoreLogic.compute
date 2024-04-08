@@ -5,8 +5,6 @@ struct Particle
 {
     float3 position;
 	float3 velocity;
-	float3 viscosity;
-    float pressure;
     float density;
 };
 RWStructuredBuffer<float3> particlePositions;
@@ -18,13 +16,13 @@ RWStructuredBuffer<Particle> particleWrite;
 uint nParticles;
 float time;
 uint frame;
-float viscosityCoefficient = 0.005;;
+float viscosityCoefficient = 0.005;
+float stiffnessCoefficient;
 float tensionCoefficient;
+float restDensity;
 float3 gravityVector;
 float timeStep = 0.0005;
-float3 BoxSize;
 float particleMass= 2.0;
-float radius = 2;
 
 float BOX_SCALE;
 float BOX_INFLUENCE;
@@ -117,6 +115,7 @@ float WViscLaplace(float3 deltaPos, float h)
 	return 0;
 }
 
+float radius = 2;
 float radius4 = 16;
 float radius5 = 32;
 float SpikyKernelFirstDerivative(float distance)
@@ -130,7 +129,6 @@ float SpikyKernelSecondDerivative(float distance)
     float x = 1.0f - distance / radius;
     return 90.f / ( PI * radius5 ) * x;
 }
-
 
 float3 SpikyKernelGradient(float distance, float3 directionFromCenter)
 {
@@ -156,35 +154,6 @@ float3 GetGravityAtParticle(uint3 id)
 	return particleRead[id.x].density * gravityVector;
 }
 
-float3 GetPressureAtParticle(uint3 id)
-{
-	uint currentParticleIdx = id.x;
-	float3 newPressure = float3(0,0,0);
-	for(uint i = 0; i < nParticles; i++)
-	{
-		if(i == currentParticleIdx){continue;}
-		float tempTerm = ((particleRead[currentParticleIdx].pressure + particleRead[i].pressure)*particleMass) /(2 * particleRead[i].density);
-		float3 pressureContribution = WSpikyGradient(particleRead[currentParticleIdx].position - particleRead[i].position, WSpikyh) * tempTerm;
-
-		newPressure += pressureContribution;
-	}
-	return -1 * newPressure;
-}
-
-float3 GetViscosityAtParticle(uint3 id)
-{
-	uint currentParticleIdx = id.x;
-	float3 newViscosity = float3(0,0,0);
-
-	for(uint i = 0; i < nParticles; i++)
-	{
-		if(i == currentParticleIdx){continue;}
-		float3 tempTerm = particleRead[i].viscosity - particleRead[currentParticleIdx].viscosity * (particleMass/particleRead[i].density);
-		tempTerm *= WViscLaplace(particleRead[currentParticleIdx].position - particleRead[i].position, WVisch);
-	}
-	return viscosityCoefficient * newViscosity;
-}
-
 float3 GetTensionNorm(uint3 id)
 {
 	uint currentParticleIdx = id.x;
@@ -193,6 +162,7 @@ float3 GetTensionNorm(uint3 id)
 	for(uint i = 0; i < nParticles; i++)
 	{
 		if(i == currentParticleIdx){continue;}
+
 		float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh)/particleRead[i].density;
 		newNorm += normContribution;
 	}
@@ -207,6 +177,7 @@ float GetTensionLaplacian(uint3 id)
 	for(uint i = 0; i < nParticles; i++)
 	{
 		if(i == currentParticleIdx){continue;}
+
 		float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh)/particleRead[i].density;
 		newLaplacian += laplacianContribution;
 	}
@@ -239,39 +210,46 @@ float3 GetBoxNormalForce(uint3 curPoint) {
     return force;
 }
 
+float EquationOfState(float density, float restDensity)
+{
+	return stiffnessCoefficient * (density - restDensity);
+}
+
 //need to add gradient spline kernel 
 float3 CalculateAcceleration(uint3 particleId)
 {
-	float3 acceleration = float3(0,0,0);
 	uint currentParticleIdx = particleId.x;
+	float3 acceleration = float3(0,0,0);
 	for(uint j = 0; j < nParticles; j++)
 	{
 		if(j == currentParticleIdx){continue;}
-
-		float tempTerm = particleMass * (particleRead[currentParticleIdx].pressure/pow(particleRead[currentParticleIdx].density, 2) + particleRead[j].pressure/pow(particleRead[j].density, 2));
-		float3 accelerationContribution = tempTerm * WPolyGradient(particleRead[currentParticleIdx].position - particleRead[j].position, WPolyh);
-		acceleration += accelerationContribution;
-
 		float3 deltaPos = particleRead[currentParticleIdx].position - particleRead[j].position;
-		float weight = WPoly(deltaPos, WPolyh);
+
+		//adding viscosity
+		float weightV = WViscLaplace(deltaPos, WPolyh);
 		float3 dir = deltaPos / max(length(deltaPos), 0.0001);
 		float3 relativeVelocity = particleRead[currentParticleIdx].velocity - particleRead[j].velocity;
-		acceleration -= viscosityCoefficient * dot(relativeVelocity, dir) * weight * dir;
+		acceleration -= viscosityCoefficient * dot(relativeVelocity, dir) * weightV * dir;
+
+		//adding pressure
+		float weightP = WPoly(deltaPos, WPolyh);
+		float density = 0.5 * (particleRead[currentParticleIdx].density + particleRead[j].density);
+		float pressure = EquationOfState(density, restDensity);
+		pressure *= weightP;
+		acceleration += pressure * deltaPos;
+
+		//adding main term
+		pressure *= length(deltaPos);
+		float tempTerm = particleMass * (pressure/pow(particleRead[currentParticleIdx].density, 2) + pressure/pow(particleRead[j].density, 2));
+		float3 accelerationContribution = tempTerm * weightV;
+		acceleration += accelerationContribution;
 	}
 
-	float3 newPressure = GetPressureAtParticle(particleId);
-	//float3 newViscosity = GetViscosityAtParticle(particleId);
 	float3 newGravity = GetGravityAtParticle(particleId);
 	float3 newTension = GetTensionAtPoint(particleId);
-	//float3 newDensity = GetDensityAtParticle(particleId);
-	float3 newNormal = GetBoxNormalForce(particleId);
+	//float3 newNormal = GetBoxNormalForce(particleId);
 
-	acceleration *= -1;
-	acceleration += (particleRead[currentParticleIdx].density + /*newViscosity +*/ newGravity + newTension + newPressure + newNormal)/particleMass;
-
-	//particleWrite[currentParticleIdx].viscosity = newViscosity;
-	particleWrite[currentParticleIdx].pressure = length(newPressure);
-	//particleWrite[currentParticleIdx].density = length(newDensity);
+	acceleration += (/*newNormal + */newTension +  newGravity)/particleMass;
 
 	return acceleration;
 }
@@ -288,8 +266,6 @@ void ParticleLoop(uint3 id : SV_DispatchThreadID)
 	{
 		prevParticle.velocity = float3(0.0,0.0,0.0);
 		prevParticle.position = float3(pcgf(currentParticleIdx), pcgf(currentParticleIdx+5), 0.0);
-		prevParticle.viscosity = float3(1.0,1.0,1.0);
-		prevParticle.pressure = 1;
 		prevParticle.density = 1;
 
 		particleRead[currentParticleIdx] = prevParticle;

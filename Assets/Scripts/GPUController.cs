@@ -25,6 +25,18 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(1, 10)]
     float WVisch = 0;
 
+    [SerializeField, Range(0,5)]
+    float viscosity;
+
+    [SerializeField, Range(0,5)]
+    float restDensity;
+
+    [SerializeField, Range(0,5)]
+    float stiffnessCoefficient = 1;
+
+    [SerializeField, Range(0,5)]
+    float tensionCoefficient = 1;
+
     [SerializeField, Range(0,1)]
     float timeStep;
 
@@ -49,6 +61,11 @@ public class GPUController : MonoBehaviour {
         WVischID = Shader.PropertyToID("WVisch"),
         timeStepID = Shader.PropertyToID("timeStep"),
         particleMassID = Shader.PropertyToID("particleMass"),
+        viscosityID = Shader.PropertyToID("viscosityCoefficient"),
+        restDensityID = Shader.PropertyToID("restDensity"),
+        tensionCoefficientID = Shader.PropertyToID("tensionCoefficient"),
+        stiffnessCoefficientID = Shader.PropertyToID("stiffnessCoefficient"),
+        
 		timeId = Shader.PropertyToID("time");
 
     int frame = 0;   
@@ -88,11 +105,11 @@ public class GPUController : MonoBehaviour {
         particleShader.SetFloat(WVischID, WVisch);
         particleShader.SetFloat(timeStepID, timeStep);
         particleShader.SetInt(particleMassID, particleMass);
+        particleShader.SetFloat(viscosityID, viscosity);
+        particleShader.SetFloat(restDensityID, restDensity);
+        particleShader.SetFloat(tensionCoefficientID, tensionCoefficient);
+        particleShader.SetFloat(stiffnessCoefficientID, stiffnessCoefficient);
 
-        // particleShader.SetBuffer(0, "particleRead", frame % 2 == 0 ? particle0 : particle1);
-        // particleShader.SetBuffer(0, "particleWrite", frame % 2 == 0 ? particle1 : particle0);
-        // int nGroups = Mathf.CeilToInt(nParticles / 64.0f);
-		// particleShader.Dispatch(0, nGroups, 1, 1);
         CalculateDensity();
         Integrate();
 
@@ -114,8 +131,8 @@ public class GPUController : MonoBehaviour {
 
     void OnEnable() {
 		positionsBuffer = new ComputeBuffer(nParticles, 3 * sizeof(float));
-        particle0 = new ComputeBuffer(nParticles, 9 * sizeof(float) + 2 * sizeof(float));
-        particle1 = new ComputeBuffer(nParticles, 9 * sizeof(float) + 2 * sizeof(float));
+        particle0 = new ComputeBuffer(nParticles, 6 * sizeof(float) + 1 * sizeof(float));
+        particle1 = new ComputeBuffer(nParticles, 6 * sizeof(float) + 1 * sizeof(float));
 
         ParticleIntegrationKernel = particleShader.FindKernel("ParticleLoop");
         ParticleDensityCalculationKernel = particleShader.FindKernel("ParticleDensity");
