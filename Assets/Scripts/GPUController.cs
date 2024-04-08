@@ -18,11 +18,11 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(2, 200)]
 	int nParticles = 10;
 
-    [SerializeField, Range(0, 10)]
+    [SerializeField, Range(1, 10)]
     float WPolyh = 0;
-    [SerializeField, Range(0, 10)]
+    [SerializeField, Range(1, 10)]
     float WSpikyh = 0;
-    [SerializeField, Range(0, 10)]
+    [SerializeField, Range(1, 10)]
     float WVisch = 0;
 
     [SerializeField, Range(0,1)]
@@ -31,14 +31,15 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(1,50)]
     int particleMass;
 
-
+    [SerializeField, Range(1,50)]
     float boxSize = 5;
+
+    [SerializeField, Range(1,10)]
     float boxCoeff = 0.001f;
 
     static readonly int
 		positionsId = Shader.PropertyToID("particlePositions"),
 		nParticlesID = Shader.PropertyToID("nParticles"),
-		stepId = Shader.PropertyToID("step"),
         frameID = Shader.PropertyToID("frame"),
         gravityID = Shader.PropertyToID("gravityVector"),
         boxSizeID = Shader.PropertyToID("BOX_SCALE"),
@@ -50,12 +51,34 @@ public class GPUController : MonoBehaviour {
         particleMassID = Shader.PropertyToID("particleMass"),
 		timeId = Shader.PropertyToID("time");
 
-    int frame = 0;    
+    int frame = 0;   
+    int ParticleIntegrationKernel;
+    int ParticleDensityCalculationKernel;
 
-    void UpdateTestShader()
+    void Integrate()
+    {
+        particleShader.SetBuffer(ParticleIntegrationKernel, positionsId, positionsBuffer);
+        particleShader.SetBuffer(ParticleIntegrationKernel, "particleRead", frame % 2 == 0 ? particle0 : particle1);
+        particleShader.SetBuffer(ParticleIntegrationKernel, "particleWrite", frame % 2 == 0 ? particle1 : particle0);
+        int nGroups = Mathf.CeilToInt(nParticles / 64.0f);
+		particleShader.Dispatch(ParticleIntegrationKernel, nGroups, 1, 1);
+
+        frame++;
+    } 
+
+    void CalculateDensity()
+    {
+        particleShader.SetBuffer(ParticleDensityCalculationKernel, "particleRead", frame % 2 == 0 ? particle0 : particle1);
+        particleShader.SetBuffer(ParticleDensityCalculationKernel, "particleWrite", frame % 2 == 0 ? particle1 : particle0);
+        int nGroups = Mathf.CeilToInt(nParticles / 64.0f);
+		particleShader.Dispatch(ParticleDensityCalculationKernel, nGroups, 1, 1);
+
+        frame++;
+    }
+
+    void UpdateCoreShader()
     {
         float step = 10f / nParticles;
-        particleShader.SetFloat(stepId, step);
         particleShader.SetFloat(timeId, Time.time);
         particleShader.SetInt(nParticlesID, nParticles);
         particleShader.SetInt(frameID, frame);
@@ -66,37 +89,36 @@ public class GPUController : MonoBehaviour {
         particleShader.SetFloat(timeStepID, timeStep);
         particleShader.SetInt(particleMassID, particleMass);
 
-        particleShader.SetBuffer(0, positionsId, positionsBuffer);
-        particleShader.SetBuffer(0, "particleRead", frame % 2 == 0 ? particle0 : particle1);
-        particleShader.SetBuffer(0, "particleWrite", frame % 2 == 0 ? particle1 : particle0);
-        int nGroups = Mathf.CeilToInt(nParticles / 64.0f);
-		particleShader.Dispatch(0, nGroups, 1, 1);
+        // particleShader.SetBuffer(0, "particleRead", frame % 2 == 0 ? particle0 : particle1);
+        // particleShader.SetBuffer(0, "particleWrite", frame % 2 == 0 ? particle1 : particle0);
+        // int nGroups = Mathf.CeilToInt(nParticles / 64.0f);
+		// particleShader.Dispatch(0, nGroups, 1, 1);
+        CalculateDensity();
+        Integrate();
 
         particleShader.SetFloat(boxSizeID, boxSize);
         particleShader.SetFloat(boxCoeffID, boxCoeff);
 
-        material.SetFloat(stepId, step);
         material.SetBuffer(positionsId, positionsBuffer);
 
-        var bounds = new Bounds(Vector3.zero, Vector3.one * (boxSize + boxSize / nParticles));
+        var bounds = new Bounds(Vector3.zero, Vector3.one * boxSize);
         Graphics.DrawMeshInstancedProcedural(mesh, 0, material, bounds, positionsBuffer.count);
-
-        frame++;
     }  
 
     void OnDrawGizmos()
     {
-        var bounds = Vector3.one * (boxSize + boxSize / nParticles);
+        var bounds = Vector3.one * (boxSize);
         Gizmos.color = Color.red;
         Gizmos.DrawWireCube(Vector3.zero, bounds);
     }  
 
     void OnEnable() {
-		positionsBuffer = new ComputeBuffer(nParticles, 3 * 8);
-        particle0 = new ComputeBuffer(nParticles, 3 * 24 + 2 * 8);
-        particle1 = new ComputeBuffer(nParticles, 3 * 24 + 2 * 8);
+		positionsBuffer = new ComputeBuffer(nParticles, 3 * sizeof(float));
+        particle0 = new ComputeBuffer(nParticles, 9 * sizeof(float) + 2 * sizeof(float));
+        particle1 = new ComputeBuffer(nParticles, 9 * sizeof(float) + 2 * sizeof(float));
 
-        // Debug.Break();
+        ParticleIntegrationKernel = particleShader.FindKernel("ParticleLoop");
+        ParticleDensityCalculationKernel = particleShader.FindKernel("ParticleDensity");
 	}
 
     void OnDisable()
@@ -113,6 +135,6 @@ public class GPUController : MonoBehaviour {
 
 	void Update () 
     {
-        UpdateTestShader();
+        UpdateCoreShader();
     }
 }
