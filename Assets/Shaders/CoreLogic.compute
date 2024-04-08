@@ -18,7 +18,7 @@ RWStructuredBuffer<Particle> particleWrite;
 uint nParticles;
 float time;
 uint frame;
-float viscosityCoefficient;
+float viscosityCoefficient = 0.005;;
 float tensionCoefficient;
 float3 gravityVector;
 float timeStep = 0.0005;
@@ -239,31 +239,39 @@ float3 GetBoxNormalForce(uint3 curPoint) {
     return force;
 }
 
-//need to add gradient spline kernel
+//need to add gradient spline kernel 
 float3 CalculateAcceleration(uint3 particleId)
 {
 	float3 acceleration = float3(0,0,0);
 	uint currentParticleIdx = particleId.x;
 	for(uint j = 0; j < nParticles; j++)
 	{
+		if(j == currentParticleIdx){continue;}
+
 		float tempTerm = particleMass * (particleRead[currentParticleIdx].pressure/pow(particleRead[currentParticleIdx].density, 2) + particleRead[j].pressure/pow(particleRead[j].density, 2));
 		float3 accelerationContribution = tempTerm * WPolyGradient(particleRead[currentParticleIdx].position - particleRead[j].position, WPolyh);
 		acceleration += accelerationContribution;
+
+		float3 deltaPos = particleRead[currentParticleIdx].position - particleRead[j].position;
+		float weight = WPoly(deltaPos, WPolyh);
+		float3 dir = deltaPos / max(length(deltaPos), 0.0001);
+		float3 relativeVelocity = particleRead[currentParticleIdx].velocity - particleRead[j].velocity;
+		acceleration -= viscosityCoefficient * dot(relativeVelocity, dir) * weight * dir;
 	}
 
-	//float3 newPressure = GetPressureAtParticle(particleId);
-	float3 newViscosity = GetViscosityAtParticle(particleId);
+	float3 newPressure = GetPressureAtParticle(particleId);
+	//float3 newViscosity = GetViscosityAtParticle(particleId);
 	float3 newGravity = GetGravityAtParticle(particleId);
 	float3 newTension = GetTensionAtPoint(particleId);
-	float3 newDensity = GetDensityAtParticle(particleId);
+	//float3 newDensity = GetDensityAtParticle(particleId);
 	float3 newNormal = GetBoxNormalForce(particleId);
 
 	acceleration *= -1;
-	acceleration += (particleRead[currentParticleIdx].pressure + newViscosity + newGravity + newTension + newDensity + newNormal)/particleMass;
+	acceleration += (particleRead[currentParticleIdx].density + /*newViscosity +*/ newGravity + newTension + newPressure + newNormal)/particleMass;
 
-	particleWrite[currentParticleIdx].viscosity = newViscosity;
-	//particleWrite[currentParticleIdx].pressure = length(newPressure);
-	particleWrite[currentParticleIdx].density = length(newDensity);
+	//particleWrite[currentParticleIdx].viscosity = newViscosity;
+	particleWrite[currentParticleIdx].pressure = length(newPressure);
+	//particleWrite[currentParticleIdx].density = length(newDensity);
 
 	return acceleration;
 }
