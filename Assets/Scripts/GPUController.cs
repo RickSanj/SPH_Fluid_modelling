@@ -31,7 +31,7 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(0,15)]
     float restDensity;
 
-    [SerializeField, Range(0,15)]
+    [SerializeField, Range(1,40)]
     float stiffnessCoefficient = 1;
 
     [SerializeField, Range(0,15)]
@@ -43,8 +43,8 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(0,3)]
     float timeStep;
 
-    [SerializeField, Range(1,100)]
-    int particleMass;
+    // [SerializeField, Range(1,100)]
+    // int particleMass;
 
     [SerializeField, Range(1,50)]
     float boxSize = 5;
@@ -107,7 +107,7 @@ public class GPUController : MonoBehaviour {
         particleShader.SetFloat(WSpikyhID, WSpikyh);
         particleShader.SetFloat(WVischID, WVisch);
         particleShader.SetFloat(timeStepID, timeStep);
-        particleShader.SetInt(particleMassID, particleMass);
+        particleShader.SetInt(particleMassID, 1);
         particleShader.SetFloat(viscosityID, viscosity);
         particleShader.SetFloat(restDensityID, restDensity);
         particleShader.SetFloat(tensionCoefficientID, tensionCoefficient);

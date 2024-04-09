@@ -21,7 +21,7 @@ float tensionCoefficient;
 float restDensity;
 float3 gravityVector;
 float timeStep = 0.0005;
-float particleMass= 2.0;
+uint particleMass= 1;
 
 float BOX_SCALE;
 float BOX_INFLUENCE;
@@ -112,12 +112,12 @@ float GetDensityAtParticle(uint3 id)
 		if(i == currentParticleIdx){continue;}
 		density += WPoly(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh);
 	}
-	return density;
+	return density * particleMass;
 }
 
 float3 GetGravityAtParticle(uint3 id)
 {
-	return particleRead[id.x].density * gravityVector;
+	return particleMass * gravityVector;
 }
 
 float3 GetTensionNorm(uint3 id)
@@ -185,24 +185,28 @@ float EquationOfState(float density, float restDensity)
 float3 CalculateAcceleration(uint3 particleId)
 {
 	uint currentParticleIdx = particleId.x;
+	Particle currentParticle = particleRead[currentParticleIdx];
+
 	float3 acceleration = float3(0,0,0);
 	for(uint j = 0; j < nParticles; j++)
 	{
+		Particle targetParticle = particleRead[j];
+
 		if(j == currentParticleIdx){continue;}
-		float3 deltaPos = particleRead[currentParticleIdx].position - particleRead[j].position;
+		float3 deltaPos = currentParticle.position - targetParticle.position;
 
 		//adding viscosity
 		float weightV = WViscLaplace(deltaPos, WPolyh);
 		float3 dir = deltaPos / max(length(deltaPos), 0.0001);
-		float3 relativeVelocity = particleRead[currentParticleIdx].velocity - particleRead[j].velocity;
-		acceleration -= viscosityCoefficient * dot(relativeVelocity, dir) * weightV * dir;
+		float3 relativeVelocity = currentParticle.velocity - targetParticle.velocity;
+		acceleration -= viscosityCoefficient * dot(relativeVelocity, dir) * weightV * WPolyGradient(deltaPos, WPolyh) * particleMass;;
 
 		//adding pressure
 		float weightP = WPoly(deltaPos, WPolyh);
-		float density = 0.5 * (particleRead[currentParticleIdx].density + particleRead[j].density);
+		float density = 0.5 * (currentParticle.density + targetParticle.density);
 		float pressure = EquationOfState(density, restDensity);
 		pressure *= weightP;
-		acceleration += pressure * deltaPos;
+		acceleration += pressure * deltaPos/particleMass;
 	}
 
 	float3 newGravity = GetGravityAtParticle(particleId);
