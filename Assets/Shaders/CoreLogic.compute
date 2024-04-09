@@ -146,7 +146,7 @@ float GetDensityAtParticle(uint3 id)
 		if(i == currentParticleIdx){continue;}
 		density += WPoly(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh);
 	}
-	return density*particleMass;
+	return density;
 }
 
 float3 GetGravityAtParticle(uint3 id)
@@ -242,14 +242,14 @@ float3 CalculateAcceleration(uint3 particleId)
 		pressure *= length(deltaPos);
 		float tempTerm = particleMass * (pressure/pow(particleRead[currentParticleIdx].density, 2) + pressure/pow(particleRead[j].density, 2));
 		float3 accelerationContribution = tempTerm * weightV;
-		acceleration += accelerationContribution;
+		acceleration -= accelerationContribution;
 	}
 
 	float3 newGravity = GetGravityAtParticle(particleId);
 	float3 newTension = GetTensionAtPoint(particleId);
 	//float3 newNormal = GetBoxNormalForce(particleId);
 
-	acceleration += (/*newNormal + */newTension +  newGravity)/particleMass;
+	acceleration += (/*newNormal + */newTension +   newGravity)/particleMass;
 
 	return acceleration;
 }

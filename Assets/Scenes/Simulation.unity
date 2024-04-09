@@ -389,11 +389,14 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: c1ff24d9c673c63d9b435e6bc180fc9d, type: 2}
   mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
   particleShader: {fileID: 7200000, guid: 86dadde19ce4d7f1eac51fe84e12dfa8, type: 3}
-  nParticles: 15
-  WPolyh: 3
-  WSpikyh: 3
+  nParticles: 200
+  WPolyh: 1.48
+  WSpikyh: 1.4
   WVisch: 10
-  viscosity: 2
+  viscosity: 5
+  restDensity: 0.16
+  stiffnessCoefficient: 0.69
+  tensionCoefficient: 0.22
   timeStep: 0
   particleMass: 50
   boxSize: 50
