@@ -237,12 +237,6 @@ float3 CalculateAcceleration(uint3 particleId)
 		float pressure = EquationOfState(density, restDensity);
 		pressure *= weightP;
 		acceleration += pressure * deltaPos;
-
-		//adding main term
-		pressure *= length(deltaPos);
-		float tempTerm = particleMass * (pressure/pow(particleRead[currentParticleIdx].density, 2) + pressure/pow(particleRead[j].density, 2));
-		float3 accelerationContribution = tempTerm * weightV;
-		acceleration -= accelerationContribution;
 	}
 
 	float3 newGravity = GetGravityAtParticle(particleId);
