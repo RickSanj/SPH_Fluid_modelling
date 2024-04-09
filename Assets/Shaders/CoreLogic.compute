@@ -96,9 +96,23 @@ float WViscLaplace(float3 deltaPos, float h)
     if (dst > 0 && dst <= h)
 	{
 		float coefC = 20.0 / (PI * pow(h, 5.0));
-		return -coefC * (h - dst);
+		return -coefC * (h - dst;
 	}
 	return 0;
+}
+
+float3 WViscGradient(float3 deltaPos, float h)
+{
+	float dst = length(deltaPos);
+    if (dst > 0 && dst <= h)
+	{
+		float coefB = 10.0 / (PI * pow(h, 2.0));
+	        float term1 = (-3.0 * dst) / (2.0 * pow(h, 3.0));
+	        float term2 = 2.0 / pow(h, 2.0);
+	        float term3 = h / (2.0 * pow(dst, 3.0));
+	        return -coefB * deltaPos * (term1 + term2 - term3);
+	}
+	return float3(0.0, 0.0, 0.0);
 }
 /////////////
 
