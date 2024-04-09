@@ -31,19 +31,19 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(0,15)]
     float restDensity;
 
-    [SerializeField, Range(0,5)]
+    [SerializeField, Range(0,15)]
     float stiffnessCoefficient = 1;
 
-    [SerializeField, Range(0,5)]
+    [SerializeField, Range(0,15)]
     float tensionCoefficient = 1;
 
-    [SerializeField, Range(1,20)]
+    [SerializeField, Range(1,30)]
     float gravityStrength = 2;
 
     [SerializeField, Range(0,3)]
     float timeStep;
 
-    [SerializeField, Range(1,50)]
+    [SerializeField, Range(1,100)]
     int particleMass;
 
     [SerializeField, Range(1,50)]
