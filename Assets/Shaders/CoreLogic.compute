@@ -96,7 +96,7 @@ float WViscLaplace(float3 deltaPos, float h)
     if (dst > 0 && dst <= h)
 	{
 		float coefC = 20.0 / (PI * pow(h, 5.0));
-		return -coefC * (h - dst;
+		return -coefC * (h - dst);
 	}
 	return 0;
 }
