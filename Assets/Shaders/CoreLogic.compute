@@ -241,9 +241,9 @@ float3 CalculateAcceleration(uint3 particleId)
 
 	float3 newGravity = GetGravityAtParticle(particleId);
 	float3 newTension = GetTensionAtPoint(particleId);
-	//float3 newNormal = GetBoxNormalForce(particleId);
+	float3 newNormal = GetBoxNormalForce(particleId);
 
-	acceleration += (/*newNormal + */newTension +   newGravity)/particleMass;
+	acceleration += (newNormal + newTension +   newGravity)/particleMass;
 
 	return acceleration;
 }

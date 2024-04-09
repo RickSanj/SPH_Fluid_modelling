@@ -15,7 +15,7 @@ public class GPUController : MonoBehaviour {
     [SerializeField]
     ComputeShader particleShader;
 
-    [SerializeField, Range(2, 200)]
+    [SerializeField, Range(2, 1000)]
 	int nParticles = 10;
 
     [SerializeField, Range(1, 10)]
@@ -36,6 +36,9 @@ public class GPUController : MonoBehaviour {
 
     [SerializeField, Range(0,5)]
     float tensionCoefficient = 1;
+
+    [SerializeField, Range(0,10)]
+    float gravityStrength = 2;
 
     [SerializeField, Range(0,1)]
     float timeStep;
@@ -99,7 +102,7 @@ public class GPUController : MonoBehaviour {
         particleShader.SetFloat(timeId, Time.time);
         particleShader.SetInt(nParticlesID, nParticles);
         particleShader.SetInt(frameID, frame);
-        particleShader.SetVector(gravityID, Vector3.down);
+        particleShader.SetVector(gravityID, Vector3.down * gravityStrength);
         particleShader.SetFloat(WPolyhID, WPolyh);
         particleShader.SetFloat(WSpikyhID, WSpikyh);
         particleShader.SetFloat(WVischID, WVisch);
