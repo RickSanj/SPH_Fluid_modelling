@@ -25,10 +25,10 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(1, 10)]
     float WVisch = 0;
 
-    [SerializeField, Range(0,5)]
+    [SerializeField, Range(0,15)]
     float viscosity;
 
-    [SerializeField, Range(0,5)]
+    [SerializeField, Range(0,15)]
     float restDensity;
 
     [SerializeField, Range(0,5)]
@@ -37,10 +37,10 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(0,5)]
     float tensionCoefficient = 1;
 
-    [SerializeField, Range(0,10)]
+    [SerializeField, Range(1,20)]
     float gravityStrength = 2;
 
-    [SerializeField, Range(0,1)]
+    [SerializeField, Range(0,3)]
     float timeStep;
 
     [SerializeField, Range(1,50)]
