@@ -20,7 +20,7 @@ Shader "Graph/Point Surface GPU" {
 		float _Smoothness;
 
 		void ConfigureSurface (Input input, inout SurfaceOutputStandard surface) {
-			surface.Albedo.rg = saturate(input.worldPos.xy * 0.65 + 0.5);
+			surface.Albedo.rgb = saturate(float3(input.worldPos.x*0.3, input.worldPos.y*0.6, input.worldPos.x + input.worldPos.y * 0.2));
 			surface.Smoothness = _Smoothness;
 		}
 		ENDCG
