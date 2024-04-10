@@ -389,18 +389,20 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: c1ff24d9c673c63d9b435e6bc180fc9d, type: 2}
   mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
   particleShader: {fileID: 7200000, guid: 86dadde19ce4d7f1eac51fe84e12dfa8, type: 3}
-  nParticles: 900
+  nParticles: 1000
   WPolyh: 10
   WSpikyh: 10
   WVisch: 10
   viscosity: 5
-  restDensity: 4.77
+  restDensity: 8.57
   stiffnessCoefficient: 4.23
-  tensionCoefficient: 5
-  gravityStrength: 2
+  tensionCoefficient: 6.43
+  gravityStrength: 3
   timeStep: 0
-  boxSize: 50
-  boxCoeff: 0.001
+  boxNormA: 3
+  boxNormB: 2.5
+  boxSize: 100
+  boxCoeff: 2
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

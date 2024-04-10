@@ -23,6 +23,9 @@ float3 gravityVector;
 float timeStep = 0.0005;
 uint particleMass= 1;
 
+float normA=1.0;
+float normB=0.0;
+
 float BOX_SCALE;
 float BOX_INFLUENCE;
 
@@ -190,6 +193,22 @@ float3 GetBoxNormalForce(uint3 curPoint) {
     return force;
 }
 
+float3 GetAcelerationDueNormalAtParticle(uint3 id, float3 curAcceleration)
+{
+	Particle curParticle = particleRead[id.x];
+	float dx = BOX_SCALE/2 - abs(curParticle.position.x);
+	float dy = BOX_SCALE/2 - abs(curParticle.position.y);
+
+	float factorx = smoothstep(dx, normA, normB);
+	float factory = smoothstep(dy, normA, normB);
+
+	float coefx = sign(curParticle.position.x) == sign(curAcceleration.x)? 1 : 0;
+	float coefy = sign(curParticle.position.y) == sign(curAcceleration.y)? 1 : 0;
+
+	float3 newAcceleration = float3(curAcceleration.x - (curAcceleration.x+sign(curAcceleration.x)*abs(dx))*factorx * coefx,curAcceleration.y - (curAcceleration.y+sign(curAcceleration.y)*abs(dy))*factory * coefy, 0);
+	return newAcceleration;
+}
+
 float EquationOfState(float density, float restDensity)
 {
 	return stiffnessCoefficient * (density - restDensity);
@@ -225,11 +244,11 @@ float3 CalculateAcceleration(uint3 particleId)
 
 	float3 newGravity = GetGravityAtParticle(particleId);
 	float3 newTension = GetTensionAtPoint(particleId);
-	//float3 newNormal = GetBoxNormalForce(particleId);
+	acceleration += (newTension + newGravity)/particleMass;
 
-	acceleration += (/*newNormal +*/ newTension + newGravity)/particleMass;
+	float3 normedAcceleration = GetAcelerationDueNormalAtParticle(particleId, acceleration);
 
-	return acceleration;
+	return normedAcceleration;
 }
 
 #pragma kernel ParticleLoop 
@@ -242,9 +261,8 @@ void ParticleLoop(uint3 id : SV_DispatchThreadID)
 	Particle prevParticle = particleRead[currentParticleIdx];
 	if(frame == 0)
 	{
-		float step = 2*BOX_SCALE/nParticles;
 		prevParticle.velocity = float3(0.0,0.0,0.0);
-		prevParticle.position = float3(pcgf(currentParticleIdx) * 5-2, pcgf(currentParticleIdx+7) * 5-2, 0.0);
+		prevParticle.position = float3(pcgf(currentParticleIdx) * 10-4, pcgf(currentParticleIdx+7) * 10-4, 0.0);
 		prevParticle.density = 1;
 
 		particleRead[currentParticleIdx] = prevParticle;
@@ -253,6 +271,17 @@ void ParticleLoop(uint3 id : SV_DispatchThreadID)
 		float3 frameAcceleration = CalculateAcceleration(id);
 		prevParticle.velocity += timeStep * frameAcceleration;
 		prevParticle.position += prevParticle.velocity * timeStep;
+
+		if(abs(prevParticle.position.x) > BOX_SCALE/2)
+		{
+			prevParticle.position.x = BOX_SCALE/2 * sign(prevParticle.position.x);
+			prevParticle.velocity.x *= -1 * BOX_INFLUENCE;
+		}
+		if(abs(prevParticle.position.y) > BOX_SCALE/2)
+		{
+			prevParticle.position.y = BOX_SCALE/2 * sign(prevParticle.position.y);
+			prevParticle.velocity.y *= -1 * BOX_INFLUENCE;
+		}
 	}
 
 	particleWrite[currentParticleIdx] = prevParticle;

@@ -15,7 +15,7 @@ public class GPUController : MonoBehaviour {
     [SerializeField]
     ComputeShader particleShader;
 
-    [SerializeField, Range(2, 1000)]
+    [SerializeField, Range(2, 5000)]
 	int nParticles = 10;
 
     [SerializeField, Range(1, 10)]
@@ -37,7 +37,7 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(0,15)]
     float tensionCoefficient = 1;
 
-    [SerializeField, Range(1,30)]
+    [SerializeField, Range(0,30)]
     float gravityStrength = 2;
 
     [SerializeField, Range(0,3)]
@@ -46,11 +46,17 @@ public class GPUController : MonoBehaviour {
     // [SerializeField, Range(1,100)]
     // int particleMass;
 
-    [SerializeField, Range(1,50)]
+    [SerializeField, Range(0.01f,5)]
+    float boxNormA = 1;
+
+    [SerializeField, Range(0,5)]
+    float boxNormB = 0;
+
+    [SerializeField, Range(1,100)]
     float boxSize = 5;
 
-    [SerializeField, Range(1,10)]
-    float boxCoeff = 0.001f;
+    [SerializeField, Range(0,20)]
+    float boxCoeff = 1f;
 
     static readonly int
 		positionsId = Shader.PropertyToID("particlePositions"),
@@ -66,10 +72,11 @@ public class GPUController : MonoBehaviour {
         particleMassID = Shader.PropertyToID("particleMass"),
         viscosityID = Shader.PropertyToID("viscosityCoefficient"),
         restDensityID = Shader.PropertyToID("restDensity"),
+        normAID = Shader.PropertyToID("normA"),
+        normBID = Shader.PropertyToID("normB"),
         tensionCoefficientID = Shader.PropertyToID("tensionCoefficient"),
         stiffnessCoefficientID = Shader.PropertyToID("stiffnessCoefficient"),
-        
-		timeId = Shader.PropertyToID("time");
+        timeId = Shader.PropertyToID("time");
 
     int frame = 0;   
     int ParticleIntegrationKernel;
@@ -98,7 +105,6 @@ public class GPUController : MonoBehaviour {
 
     void UpdateCoreShader()
     {
-        float step = 10f / nParticles;
         particleShader.SetFloat(timeId, Time.time);
         particleShader.SetInt(nParticlesID, nParticles);
         particleShader.SetInt(frameID, frame);
@@ -112,12 +118,13 @@ public class GPUController : MonoBehaviour {
         particleShader.SetFloat(restDensityID, restDensity);
         particleShader.SetFloat(tensionCoefficientID, tensionCoefficient);
         particleShader.SetFloat(stiffnessCoefficientID, stiffnessCoefficient);
+        particleShader.SetFloat(normAID, boxNormA);
+        particleShader.SetFloat(normBID, boxNormB);
+        particleShader.SetFloat(boxSizeID, boxSize);
+        particleShader.SetFloat(boxCoeffID, boxCoeff);
 
         CalculateDensity();
         Integrate();
-
-        particleShader.SetFloat(boxSizeID, boxSize);
-        particleShader.SetFloat(boxCoeffID, boxCoeff);
 
         material.SetBuffer(positionsId, positionsBuffer);
 
