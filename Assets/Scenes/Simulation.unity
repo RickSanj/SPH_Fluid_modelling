@@ -389,7 +389,7 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: c1ff24d9c673c63d9b435e6bc180fc9d, type: 2}
   mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
   particleShader: {fileID: 7200000, guid: 86dadde19ce4d7f1eac51fe84e12dfa8, type: 3}
-  nParticles: 100
+  nParticles: 900
   WPolyh: 10
   WSpikyh: 10
   WVisch: 10

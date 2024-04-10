@@ -40,7 +40,7 @@ uint pcg(uint v) {
   }
   
 float pcgf(uint v) {
-return float(pcg(v)) / float(0xffffffffu);
+return float(pcg(v))/float(0xffffffffu);
 }
 /////////////
 
@@ -54,7 +54,7 @@ float WPoly(float3 deltaPos, float h){
 		float v = h*h - dst*dst;
 		return coefA * pow(v, 3.0);
 	}
-	return 0;
+	return float(0.0);
 }
 
 float3 WPolyGradient(float3 deltaPos, float h)
@@ -76,7 +76,7 @@ float WPolyLaplace(float3 deltaPos, float h)
 		float coefC = 24.0 / (PI * pow(h, 8.0));
 		return -coefC * (h*h - dst*dst) * (3*h*h - 7*dst*dst);
 	}
-	return 0;
+	return float(0.0);
 }
 
 float3 WSpikyGradient(float3 deltaPos, float h)
@@ -98,7 +98,7 @@ float WViscLaplace(float3 deltaPos, float h)
 		float coefC = 20.0 / (PI * pow(h, 5.0));
 		return -coefC * (h - dst);
 	}
-	return 0;
+	return float(0.0);
 }
 
 float3 WViscGradient(float3 deltaPos, float h)
@@ -242,8 +242,9 @@ void ParticleLoop(uint3 id : SV_DispatchThreadID)
 	Particle prevParticle = particleRead[currentParticleIdx];
 	if(frame == 0)
 	{
+		float step = 2*BOX_SCALE/nParticles;
 		prevParticle.velocity = float3(0.0,0.0,0.0);
-		prevParticle.position = float3(pcgf(currentParticleIdx), pcgf(currentParticleIdx+7), 0.0);
+		prevParticle.position = float3(pcgf(currentParticleIdx) * 5-2, pcgf(currentParticleIdx+7) * 5-2, 0.0);
 		prevParticle.density = 1;
 
 		particleRead[currentParticleIdx] = prevParticle;
