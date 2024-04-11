@@ -246,9 +246,9 @@ float3 CalculateAcceleration(uint3 particleId)
 	float3 newTension = GetTensionAtPoint(particleId);
 	acceleration += (newTension + newGravity)/particleMass;
 
-	float3 normedAcceleration = GetAcelerationDueNormalAtParticle(particleId, acceleration);
+	//float3 normedAcceleration = GetAcelerationDueNormalAtParticle(particleId, acceleration);
 
-	return normedAcceleration;
+	return acceleration;
 }
 
 #pragma kernel ParticleLoop 
