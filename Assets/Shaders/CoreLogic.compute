@@ -33,6 +33,14 @@ float WPolyh = 0;
 float WSpikyh = 0;
 float WVisch = 0;
 
+///Sorting
+uint numberCells;
+
+RWStructuredBuffer<uint2> particlesCellsRead;
+RWStructuredBuffer<uint2> particlesCellsWrite;
+
+RWStructuredBuffer<uint> cellsStartIndices;
+
 //////////////////////
 
 //////Util/////
@@ -224,7 +232,6 @@ float3 CalculateAcceleration(uint3 particleId)
 	for(uint j = 0; j < nParticles; j++)
 	{
 		Particle targetParticle = particleRead[j];
-
 		if(j == currentParticleIdx){continue;}
 		float3 deltaPos = currentParticle.position - targetParticle.position;
 
@@ -302,4 +309,43 @@ void ParticleDensity(uint3 id : SV_DispatchThreadID)
 	particle.density = density;
 
 	particleWrite[currentParticleIdx] = particle;
+}
+
+uint passIdx;
+uint nParticlesPerThread;
+RWStructuredBuffer<uint> initRadixCounters;
+
+uint radixTuple = 8;
+#pragma kernel CountRadixLocal
+[numthreads(64,1,1)]
+void CountRadixLocal(uint3 id : SV_DispatchThreadID)
+{
+	uint startIdx = id.x * nParticlesPerThread;
+	uint endIdx = startIdx + nParticlesPerThread;
+
+	uint radixGroupIdx = (id.x / 64) * pow(2, radixTuple);
+
+	for(uint i = startIdx; i < endIdx; i++)
+	{
+		uint radixValue = 255 & (particlesCellsRead[i] >> (passIdx * radixTuple));
+		uint radixIdx = radixGroupIdx + radixValue;
+
+		InterlockedAdd(initRadixCounters[radixIdx], 1);
+	}
+}
+
+RWStructuredBuffer<uint2> radixToOffset; 
+uint nCountersPerThread;
+
+#pragma kernel RadixOffsetPrefixSum
+[numthreads(64,1,1)]
+void RadixOffsetPrefixSum(uint3 id : SV_DispatchThreadID)
+{
+	uint threadCountersStartIdx = id.x * nCountersPerThread;
+	uint threadCountersEndIdx = threadCountersStartIdx + nCountersPerThread;
+
+	for(uint i = threadCountersStartIdx; i < threadCountersEndIdx; i++)
+	{
+		
+	}
 }
