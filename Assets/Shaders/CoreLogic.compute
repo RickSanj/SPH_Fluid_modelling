@@ -415,7 +415,7 @@ void ParticleLoop(uint3 id : SV_DispatchThreadID)
 	uint newCellIdx = floor(prevParticle.position.x / cellSize) + cellsResolution*floor(prevParticle.position.y / cellSize);
 
 	fixedParticleToCell[currentParticleIdx] = uint2(floor(prevParticle.position.x / cellSize), floor(prevParticle.position.y / cellSize));
-	particlesCellsRead[currentParticleIdx] = uint2(newCellIdx, currentParticleIdx);
+	particlesCellsWrite[currentParticleIdx] = uint2(newCellIdx, currentParticleIdx);
 }
 
 #pragma kernel ParticleDensity
@@ -434,11 +434,11 @@ void ParticleDensity(uint3 id : SV_DispatchThreadID)
 	particleWrite[currentParticleIdx] = particle;
 }
 
+RWStructuredBuffer<uint> initRadixCounters;
 uint passIdx;
 uint nParticlesPerThread;
-RWStructuredBuffer<uint> initRadixCounters;
-
 uint radixTuple = 8;
+
 #pragma kernel CountRadixLocal
 [numthreads(64,1,1)]
 void CountRadixLocal(uint3 id : SV_DispatchThreadID)
@@ -446,7 +446,7 @@ void CountRadixLocal(uint3 id : SV_DispatchThreadID)
 	uint startIdx = id.x * nParticlesPerThread;
 	uint endIdx = startIdx + nParticlesPerThread;
 
-	uint radixGroupIdx = (id.x / 64) * pow(2, radixTuple);
+	uint radixGroupIdx = (id.x % 64) * pow(2, radixTuple);
 
 	for(uint i = startIdx; i < endIdx; i++)
 	{
@@ -470,10 +470,10 @@ void RadixOffsetPrefixSum(uint3 id : SV_DispatchThreadID)
 
 	for(uint i = threadCountersStartIdx; i < threadCountersEndIdx; i++)
 	{
-		uint radixIdx = i / nRadix;
-		for(uint j = radixIdx; j < nRadix; j++)
+		uint radixIdx = i % nRadix;
+		for(uint j = radixIdx+1; j < nRadix; j++)
 		{
-			InterlockedAdd(radixToOffset[j],1);
+			InterlockedAdd(radixToOffset[j], initRadixCounters[i]);
 		}
 	}
 }
@@ -507,10 +507,25 @@ void AssignCellRegions(uint3 id : SV_DispatchThreadID)
 	for(uint i = startIdx; i < endIdx; i++)
 	{
 		uint currentCellIdx = particlesCellsWrite[i].y;
+		particlesCellsRead[i] = particlesCellsWrite[i];
 		if(currentCellIdx != prevCellIdx)
 		{
 			cellsStartIndices[currentCellIdx] = i;
 			prevCellIdx = currentCellIdx;
 		}
 	}
+}
+
+#pragma kernel ClearCounters
+[numthreads(64,1,1)]
+void ClearCounters(uint3 id : SV_DispatchThreadID)
+{
+	uint threadCountersStartIdx = id.x * nCountersPerThread;
+	uint threadCountersEndIdx = threadCountersStartIdx + nCountersPerThread;
+
+	for(uint i = threadCountersStartIdx; i < threadCountersEndIdx; i++)
+	{
+		initRadixCounters[i] = 0;		
+	}	
+	radixToOffset[id.x % pow(2, radixTuple)] = 0;
 }
