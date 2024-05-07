@@ -34,11 +34,14 @@ float WSpikyh = 0;
 float WVisch = 0;
 
 ///Sorting
-uint numberCells;
+uint cellsResolution;
+uint cellsRadius;
 
+//cell -> particle idx
 RWStructuredBuffer<uint2> particlesCellsRead;
 RWStructuredBuffer<uint2> particlesCellsWrite;
 
+RWStructuredBuffer<uint2> fixedParticleToCell;
 RWStructuredBuffer<uint> cellsStartIndices;
 
 //////////////////////
@@ -132,11 +135,30 @@ float GetDensityAtParticle(uint3 id)
 {
 	uint currentParticleIdx = id.x;
 	float density = 0;
-	for(uint i = 0; i < nParticles; i++)
+	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
+
+	uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
+	uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
+
+	uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
+	uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
+
+	for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
 	{
-		if(i == currentParticleIdx){continue;}
-		density += WPoly(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh);
+		for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
+		{
+			if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
+
+			uint cellCoord = x + cellsResolution*y;
+			for(uint neighbour = cellsStartIndices[cellCoord]; true; neighbour++)
+			{
+				if(particlesCellsWrite[neighbour].x != cellCoord){break;}
+
+				density += WPoly(particleRead[currentParticleIdx].position - particleRead[particlesCellsWrite[neighbour].y].position, WPolyh);
+			}
+		}
 	}
+
 	return density * particleMass;
 }
 
@@ -150,13 +172,31 @@ float3 GetTensionNorm(uint3 id)
 	uint currentParticleIdx = id.x;
 	float3 newNorm = float3(0,0,0);
 
-	for(uint i = 0; i < nParticles; i++)
-	{
-		if(i == currentParticleIdx){continue;}
+	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
 
-		float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh)/max(particleRead[i].density, 0.0001);
-		newNorm += normContribution;
+	uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
+	uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
+
+	uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
+	uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
+
+	for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
+	{
+		for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
+		{
+			if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
+
+			uint cellCoord = x + cellsResolution*y;
+			for(uint neighbour = cellsStartIndices[cellCoord]; true; neighbour++)
+			{
+				if(particlesCellsWrite[neighbour].x != cellCoord){break;}
+
+				float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[particlesCellsWrite[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsWrite[neighbour].y].density, 0.0001);
+				newNorm += normContribution;
+			}
+		}
 	}
+
 	return -1 * newNorm * particleMass;
 }
 
@@ -165,13 +205,31 @@ float GetTensionLaplacian(uint3 id)
 	uint currentParticleIdx = id.x;
 	float newLaplacian = 0;
 
-	for(uint i = 0; i < nParticles; i++)
-	{
-		if(i == currentParticleIdx){continue;}
+	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
 
-		float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[i].position, WPolyh)/max(particleRead[i].density, 0.0001);
-		newLaplacian += laplacianContribution;
+	uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
+	uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
+
+	uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
+	uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
+
+	for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
+	{
+		for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
+		{
+			if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
+
+			uint cellCoord = x + cellsResolution*y;
+			for(uint neighbour = cellsStartIndices[cellCoord]; true; neighbour++)
+			{
+				if(particlesCellsWrite[neighbour].x != cellCoord){break;}
+
+				float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[particlesCellsWrite[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsWrite[neighbour].y].density, 0.0001);
+				newLaplacian += laplacianContribution;
+			}
+		}
 	}
+
 	return newLaplacian * particleMass;
 }
 
@@ -222,6 +280,81 @@ float EquationOfState(float density, float restDensity)
 	return stiffnessCoefficient * (density - restDensity);
 }
 
+float3 GetViscosityAtParticle(Particle currentParticle, uint currentParticleIdx)
+{
+	float3 viscosity;
+
+	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
+
+	uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
+	uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
+
+	uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
+	uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
+
+	for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
+	{
+		for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
+		{
+			if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
+
+			uint cellCoord = x + cellsResolution*y;
+			for(uint neighbour = cellsStartIndices[cellCoord]; true; neighbour++)
+			{
+				if(particlesCellsWrite[neighbour].x != cellCoord){break;}
+
+				Particle targetParticle = particleRead[particlesCellsWrite[neighbour].y];
+				float3 deltaPos = currentParticle.position - targetParticle.position;
+
+				float weightV = WViscLaplace(deltaPos, WPolyh);
+				float3 dir = deltaPos / max(length(deltaPos), 0.0001);
+				float3 relativeVelocity = currentParticle.velocity - targetParticle.velocity;
+				viscosity -= viscosityCoefficient * dot(relativeVelocity, dir) * weightV * WPolyGradient(deltaPos, WPolyh) * particleMass;;
+			}
+		}
+	}
+	
+	return viscosity;
+}
+
+float3 GetPressureAtParticle(Particle currentParticle, uint currentParticleIdx)
+{
+	float3 newPressure;
+
+	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
+
+	uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
+	uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
+
+	uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
+	uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
+
+	for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
+	{
+		for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
+		{
+			if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
+
+			uint cellCoord = x + cellsResolution*y;
+			for(uint neighbour = cellsStartIndices[cellCoord]; true; neighbour++)
+			{
+				if(particlesCellsWrite[neighbour].x != cellCoord){break;}
+
+				Particle targetParticle = particleRead[particlesCellsWrite[neighbour].y];
+				float3 deltaPos = currentParticle.position - targetParticle.position;
+
+				float weightP = WPoly(deltaPos, WPolyh);
+				float density = 0.5 * (currentParticle.density + targetParticle.density);
+				float pressure = EquationOfState(density, restDensity);
+				pressure *= weightP;
+
+				newPressure += pressure * deltaPos * particleMass;
+			}
+		}
+	}
+	return newPressure;
+}
+
 //need to add gradient spline kernel 
 float3 CalculateAcceleration(uint3 particleId)
 {
@@ -229,29 +362,13 @@ float3 CalculateAcceleration(uint3 particleId)
 	Particle currentParticle = particleRead[currentParticleIdx];
 
 	float3 acceleration = float3(0,0,0);
-	for(uint j = 0; j < nParticles; j++)
-	{
-		Particle targetParticle = particleRead[j];
-		if(j == currentParticleIdx){continue;}
-		float3 deltaPos = currentParticle.position - targetParticle.position;
 
-		//adding viscosity
-		float weightV = WViscLaplace(deltaPos, WPolyh);
-		float3 dir = deltaPos / max(length(deltaPos), 0.0001);
-		float3 relativeVelocity = currentParticle.velocity - targetParticle.velocity;
-		acceleration -= viscosityCoefficient * dot(relativeVelocity, dir) * weightV * WPolyGradient(deltaPos, WPolyh) * particleMass;;
-
-		//adding pressure
-		float weightP = WPoly(deltaPos, WPolyh);
-		float density = 0.5 * (currentParticle.density + targetParticle.density);
-		float pressure = EquationOfState(density, restDensity);
-		pressure *= weightP;
-		acceleration += pressure * deltaPos/particleMass;
-	}
-
+	float3 newPressure = GetPressureAtParticle(currentParticle, currentParticleIdx);
+	float3 newViscosity = GetViscosityAtParticle(currentParticle, currentParticleIdx);
 	float3 newGravity = GetGravityAtParticle(particleId);
 	float3 newTension = GetTensionAtPoint(particleId);
-	acceleration += (newTension + newGravity)/particleMass;
+
+	acceleration += (newTension + newGravity + newViscosity + newPressure)/particleMass;
 
 	//float3 normedAcceleration = GetAcelerationDueNormalAtParticle(particleId, acceleration);
 
@@ -293,6 +410,12 @@ void ParticleLoop(uint3 id : SV_DispatchThreadID)
 
 	particleWrite[currentParticleIdx] = prevParticle;
 	particlePositions[currentParticleIdx] = prevParticle.position;
+
+	uint cellSize = BOX_SCALE/cellsResolution;
+	uint newCellIdx = floor(prevParticle.position.x / cellSize) + cellsResolution*floor(prevParticle.position.y / cellSize);
+
+	fixedParticleToCell[currentParticleIdx] = uint2(floor(prevParticle.position.x / cellSize), floor(prevParticle.position.y / cellSize));
+	particlesCellsRead[currentParticleIdx] = uint2(newCellIdx, currentParticleIdx);
 }
 
 #pragma kernel ParticleDensity
@@ -327,14 +450,14 @@ void CountRadixLocal(uint3 id : SV_DispatchThreadID)
 
 	for(uint i = startIdx; i < endIdx; i++)
 	{
-		uint radixValue = 255 & (particlesCellsRead[i] >> (passIdx * radixTuple));
+		uint radixValue = 255 & (particlesCellsRead[i].y >> (passIdx * radixTuple));
 		uint radixIdx = radixGroupIdx + radixValue;
 
 		InterlockedAdd(initRadixCounters[radixIdx], 1);
 	}
 }
 
-RWStructuredBuffer<uint2> radixToOffset; 
+RWStructuredBuffer<uint> radixToOffset; 
 uint nCountersPerThread;
 
 #pragma kernel RadixOffsetPrefixSum
@@ -343,9 +466,51 @@ void RadixOffsetPrefixSum(uint3 id : SV_DispatchThreadID)
 {
 	uint threadCountersStartIdx = id.x * nCountersPerThread;
 	uint threadCountersEndIdx = threadCountersStartIdx + nCountersPerThread;
+	uint nRadix = pow(2, radixTuple);
 
 	for(uint i = threadCountersStartIdx; i < threadCountersEndIdx; i++)
 	{
-		
+		uint radixIdx = i / nRadix;
+		for(uint j = radixIdx; j < nRadix; j++)
+		{
+			InterlockedAdd(radixToOffset[j],1);
+		}
+	}
+}
+
+#pragma kernel SortMap
+[numthreads(64,1,1)]
+void SortMap(uint3 id : SV_DispatchThreadID)
+{
+	uint startIdx = id.x * nParticlesPerThread;
+	uint endIdx = startIdx + nParticlesPerThread;
+
+	for(uint i = startIdx; i < endIdx; i++)
+	{
+		uint radixIdx = 255 & (particlesCellsRead[i].y >> (passIdx * radixTuple));
+		uint2 particleToCells = particlesCellsRead[i];
+		uint sortedArrIdx;
+		InterlockedAdd(radixToOffset[radixIdx], 1, sortedArrIdx);
+
+		particlesCellsWrite[sortedArrIdx] = particleToCells;
+	}
+}
+
+#pragma kernel AssignCellRegions
+[numthreads(64,1,1)]
+void AssignCellRegions(uint3 id : SV_DispatchThreadID)
+{
+	uint startIdx = id.x * nParticlesPerThread;
+	uint endIdx = startIdx + nParticlesPerThread;
+
+	uint prevCellIdx = particlesCellsWrite[max(startIdx-1, 0)].x;
+	for(uint i = startIdx; i < endIdx; i++)
+	{
+		uint currentCellIdx = particlesCellsWrite[i].y;
+		if(currentCellIdx != prevCellIdx)
+		{
+			cellsStartIndices[currentCellIdx] = i;
+			prevCellIdx = currentCellIdx;
+		}
 	}
 }
