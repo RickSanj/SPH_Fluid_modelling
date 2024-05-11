@@ -446,11 +446,13 @@ void CountRadixLocal(uint3 id : SV_DispatchThreadID)
 	uint startIdx = id.x * nParticlesPerThread;
 	uint endIdx = startIdx + nParticlesPerThread;
 
-	uint radixGroupIdx = (id.x % 64) * pow(2, radixTuple);
+	uint nRadix = pow(2, radixTuple);
+
+	uint radixGroupIdx = floor(id.x / 64) * nRadix;
 
 	for(uint i = startIdx; i < endIdx; i++)
 	{
-		uint radixValue = 255 & (particlesCellsRead[i].y >> (passIdx * radixTuple));
+		uint radixValue = (nRadix-1) & (particlesCellsRead[i].x >> (passIdx * radixTuple));
 		uint radixIdx = radixGroupIdx + radixValue;
 
 		InterlockedAdd(initRadixCounters[radixIdx], 1);
@@ -470,10 +472,11 @@ void RadixOffsetPrefixSum(uint3 id : SV_DispatchThreadID)
 
 	for(uint i = threadCountersStartIdx; i < threadCountersEndIdx; i++)
 	{
+		uint localRadixCount = initRadixCounters[i];
 		uint radixIdx = i % nRadix;
 		for(uint j = radixIdx+1; j < nRadix; j++)
 		{
-			InterlockedAdd(radixToOffset[j], initRadixCounters[i]);
+			InterlockedAdd(radixToOffset[j], localRadixCount);
 		}
 	}
 }
@@ -484,10 +487,11 @@ void SortMap(uint3 id : SV_DispatchThreadID)
 {
 	uint startIdx = id.x * nParticlesPerThread;
 	uint endIdx = startIdx + nParticlesPerThread;
+	uint nRadix = pow(2, radixTuple);
 
 	for(uint i = startIdx; i < endIdx; i++)
 	{
-		uint radixIdx = 255 & (particlesCellsRead[i].y >> (passIdx * radixTuple));
+		uint radixIdx = (nRadix-1) & (particlesCellsRead[i].x >> (passIdx * radixTuple));
 		uint2 particleToCells = particlesCellsRead[i];
 		uint sortedArrIdx;
 		InterlockedAdd(radixToOffset[radixIdx], 1, sortedArrIdx);
@@ -506,7 +510,7 @@ void AssignCellRegions(uint3 id : SV_DispatchThreadID)
 	uint prevCellIdx = particlesCellsWrite[max(startIdx-1, 0)].x;
 	for(uint i = startIdx; i < endIdx; i++)
 	{
-		uint currentCellIdx = particlesCellsWrite[i].y;
+		uint currentCellIdx = particlesCellsWrite[i].x;
 		particlesCellsRead[i] = particlesCellsWrite[i];
 		if(currentCellIdx != prevCellIdx)
 		{

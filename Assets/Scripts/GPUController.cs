@@ -23,7 +23,7 @@ public class GPUController : MonoBehaviour {
     ComputeShader particleShader;
 
     // [SerializeField, Range(2, 5000)]
-	int nParticles = 10;
+	int nParticles = 6400;
 
     [SerializeField, Range(1, 10)]
     float WPolyh = 0;
@@ -68,9 +68,8 @@ public class GPUController : MonoBehaviour {
     int cellsResolution = 1000;
     int cellsRadius = 50;
     int radixTuple = 8;
-    int nParticlesPerThread;
-    int nCountersPerThread;
-    int nSummationThreadGroups;
+    int nParticlesPerThread = 5;
+    int nCountersPerThread = 5;
 
     static readonly int
         cellsResolutionID = Shader.PropertyToID("cellsResolution"),
@@ -134,6 +133,7 @@ public class GPUController : MonoBehaviour {
 
         for(int i = 0; i < nPass; i++)
         {
+            Debug.Log("Sorting by " + i + " bit tuple!");
             particleShader.SetBuffer(CountRadixLocalKernel, particlesCellsReadID, i % 2 == 0 ?  particleCellsRead : particleCellsWrite);
             particleShader.SetBuffer(RadixOffsetPrefixSumKernel, particlesCellsReadID, i % 2 == 0 ?  particleCellsRead : particleCellsWrite);
             particleShader.SetBuffer(SortMapKernel, particlesCellsReadID, i % 2 == 0 ?  particleCellsRead : particleCellsWrite);
@@ -150,8 +150,10 @@ public class GPUController : MonoBehaviour {
             particleShader.Dispatch(ClearCountersKernel, nSummationGroups, 1, 1);
         }
 
+        Debug.Log("Reordering pairs!");
         particleShader.SetBuffer(AssignCellRegionsKernel, cellsStartIndicesID, cellsStartIndices);
-        particleShader.SetBuffer(AssignCellRegionsKernel, particlesCellsWriteID, particleCellsRead);    
+        particleShader.SetBuffer(AssignCellRegionsKernel, particlesCellsWriteID, particleCellsRead);
+        particleShader.SetBuffer(AssignCellRegionsKernel, particlesCellsReadID, particleCellsWrite);
         particleShader.Dispatch(AssignCellRegionsKernel, nCountingGroups, 1, 1);
     }
 
@@ -230,6 +232,7 @@ public class GPUController : MonoBehaviour {
     }  
 
     void OnEnable() {
+        int nCombinations = (int)Mathf.Pow(2, radixTuple);
         int floatSize = sizeof(float);
         int intSize = sizeof(int);
 
@@ -240,12 +243,12 @@ public class GPUController : MonoBehaviour {
         particleCellsWrite = new ComputeBuffer(nParticles, 2 * intSize);
         fixedParticleToCell = new ComputeBuffer(nParticles, 2 * intSize);
         cellsStartIndices = new ComputeBuffer(cellsResolution * cellsResolution, intSize);
-        radixToOffset = new ComputeBuffer((int)Mathf.Pow(2, radixTuple), intSize);
+        radixToOffset = new ComputeBuffer(nCombinations, intSize);
 
         int nGroups = nParticles / (64 * nParticlesPerThread);
-        initRadixCounters = new ComputeBuffer(256 * nGroups, intSize);
+        initRadixCounters = new ComputeBuffer(nCombinations * nGroups, intSize);
 
-        int nCounters = (int)Mathf.Pow(2, radixTuple) * nGroups;
+        int nCounters = nCombinations * nGroups;
         int nSummationGroups = nCounters / (64 * nCountersPerThread);
 
         ParticleIntegrationKernel = particleShader.FindKernel("ParticleLoop");
