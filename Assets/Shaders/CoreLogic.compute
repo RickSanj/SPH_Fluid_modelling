@@ -247,17 +247,17 @@ float smoothstep(float x, float a, float b) {
     return t*t*(3-2*t); 
 }
 
-float3 GetBoxNormalForce(uint3 curPoint) {
-	float _box_start = BOX_SCALE - BOX_INFLUENCE;
-    float3 force;
-    float horizontal = smoothstep(abs(curPoint.x), _box_start, BOX_SCALE);
-    float vertical = smoothstep(abs(curPoint.y), _box_start, BOX_SCALE);
-    force.x = -curPoint.x * horizontal;
-    force.y = -curPoint.y * vertical;
-	force.z = 0;
+// float3 GetBoxNormalForce(uint3 curPoint) {
+// 	float _box_start = BOX_SCALE - BOX_INFLUENCE;
+//     float3 force;
+//     float horizontal = smoothstep(abs(curPoint.x), _box_start, BOX_SCALE);
+//     float vertical = smoothstep(abs(curPoint.y), _box_start, BOX_SCALE);
+//     force.x = -curPoint.x * horizontal;
+//     force.y = -curPoint.y * vertical;
+// 	force.z = 0;
     
-    return force;
-}
+//     return force;
+// }
 
 float3 GetAcelerationDueNormalAtParticle(uint3 id, float3 curAcceleration)
 {
@@ -485,18 +485,31 @@ void RadixOffsetPrefixSum(uint3 id : SV_DispatchThreadID)
 [numthreads(64,1,1)]
 void SortMap(uint3 id : SV_DispatchThreadID)
 {
-	uint startIdx = id.x * nParticlesPerThread;
-	uint endIdx = startIdx + nParticlesPerThread;
+	// uint startIdx = id.x * nParticlesPerThread;
+	// uint endIdx = startIdx + nParticlesPerThread;
+	// uint nRadix = pow(2, radixTuple);
+
+	// for(uint i = startIdx; i < endIdx; i++)
+	// {
+	// 	uint radixIdx = (nRadix-1) & (particlesCellsRead[i].x >> (passIdx * radixTuple));
+	// 	uint2 particleToCells = particlesCellsRead[i];
+	// 	uint sortedArrIdx;
+	// 	InterlockedAdd(radixToOffset[radixIdx], 1, sortedArrIdx);
+
+	// 	particlesCellsWrite[sortedArrIdx] = particleToCells;
+	// }
+
+	uint threadRadix = id.x;
 	uint nRadix = pow(2, radixTuple);
-
-	for(uint i = startIdx; i < endIdx; i++)
+	for(uint i = 0; i < nParticles; i++)
 	{
-		uint radixIdx = (nRadix-1) & (particlesCellsRead[i].x >> (passIdx * radixTuple));
-		uint2 particleToCells = particlesCellsRead[i];
-		uint sortedArrIdx;
-		InterlockedAdd(radixToOffset[radixIdx], 1, sortedArrIdx);
+		uint radixValue = (nRadix-1) & (particlesCellsRead[i].x >> (passIdx * radixTuple));
+		if(radixValue != threadRadix){continue;}
 
+		uint2 particleToCells = particlesCellsRead[i];
+		uint sortedArrIdx = radixToOffset[threadRadix];
 		particlesCellsWrite[sortedArrIdx] = particleToCells;
+		radixToOffset[threadRadix]++;
 	}
 }
 
