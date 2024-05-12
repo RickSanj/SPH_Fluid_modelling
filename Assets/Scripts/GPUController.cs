@@ -135,6 +135,7 @@ public class GPUController : MonoBehaviour {
         for(int i = 0; i < nPass; i++)
         {
             Debug.Log("Sorting by " + i + " bit tuple!");
+            particleShader.SetInt(passIdxID, i);
             particleShader.SetBuffer(CountRadixLocalKernel, particlesCellsReadID, i % 2 == 0 ?  particleCellsRead : particleCellsWrite);
             particleShader.SetBuffer(RadixOffsetPrefixSumKernel, particlesCellsReadID, i % 2 == 0 ?  particleCellsRead : particleCellsWrite);
             particleShader.SetBuffer(SortMapKernel, particlesCellsReadID, i % 2 == 0 ?  particleCellsRead : particleCellsWrite);
@@ -142,8 +143,6 @@ public class GPUController : MonoBehaviour {
             particleShader.SetBuffer(CountRadixLocalKernel, particlesCellsWriteID, i % 2 == 0 ?  particleCellsWrite : particleCellsRead);
             particleShader.SetBuffer(RadixOffsetPrefixSumKernel, particlesCellsWriteID, i % 2 == 0 ?  particleCellsWrite : particleCellsRead);
             particleShader.SetBuffer(SortMapKernel, particlesCellsWriteID, i % 2 == 0 ?  particleCellsWrite : particleCellsRead);
-
-            particleShader.SetInt(passIdxID, i);
 
             particleShader.Dispatch(CountRadixLocalKernel, nCountingGroups, 1, 1);
             particleShader.Dispatch(RadixOffsetPrefixSumKernel, nSummationGroups, 1, 1);
