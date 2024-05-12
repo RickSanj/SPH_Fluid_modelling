@@ -10,8 +10,8 @@ public class GPUController : MonoBehaviour {
     ComputeBuffer particleCellsWrite;
     ComputeBuffer fixedParticleToCell;
     ComputeBuffer cellsStartIndices;
-    ComputeBuffer initRadixCounters;
-    ComputeBuffer radixToOffset;
+    ComputeBuffer cellCounters;
+    ComputeBuffer cellToOffset;
 
     [SerializeField]
 	Material material;
@@ -50,9 +50,6 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(0,3)]
     float timeStep;
 
-    // [SerializeField, Range(1,100)]
-    // int particleMass;
-
     [SerializeField, Range(0.01f,5)]
     float boxNormA = 1;
 
@@ -65,11 +62,10 @@ public class GPUController : MonoBehaviour {
     [SerializeField, Range(0,20)]
     float boxCoeff = 1f;
 
-    int cellsResolution = 1000;
+    int cellsResolution = 128;
     int cellsRadius = 50;
-    int radixTuple = 8;
     int nParticlesPerThread = 5;
-    int nCountersPerThread = 5;
+    int nCellsPerThread = 8;
 
     static readonly int
         cellsResolutionID = Shader.PropertyToID("cellsResolution"),
@@ -78,13 +74,11 @@ public class GPUController : MonoBehaviour {
         particlesCellsWriteID = Shader.PropertyToID("particlesCellsWrite"),
         fixedParticleToCellID = Shader.PropertyToID("fixedParticleToCell"),
         cellsStartIndicesID = Shader.PropertyToID("cellsStartIndices"),
-        radixToOffsetID = Shader.PropertyToID("radixToOffset"),
-        initRadixCountersID = Shader.PropertyToID("initRadixCounters"),
-        nCountersPerThreadID = Shader.PropertyToID("nCountersPerThread"),
-        passIdxID = Shader.PropertyToID("passIdx"),
+        cellToOffsetID = Shader.PropertyToID("cellToOffset"),
+        cellCountersID = Shader.PropertyToID("cellCounters"),
+        nCellsPerThreadID = Shader.PropertyToID("nCellsPerThread"),
         nParticlesPerThreadID = Shader.PropertyToID("nParticlesPerThread"),
-        radixTupleID = Shader.PropertyToID("radixTuple "),
-
+    
 		positionsId = Shader.PropertyToID("particlePositions"),
 		nParticlesID = Shader.PropertyToID("nParticles"),
         frameID = Shader.PropertyToID("frame"),
@@ -107,54 +101,46 @@ public class GPUController : MonoBehaviour {
     int frame = 0;   
     int ParticleIntegrationKernel;
     int ParticleDensityCalculationKernel;
-
-    int CountRadixLocalKernel;
-    int RadixOffsetPrefixSumKernel;
+    int CountCellsKernel;
+    int CellPrefixSumKernel;
     int SortMapKernel;
     int AssignCellRegionsKernel;
     int ClearCountersKernel;
 
     void SortParticles()
     {
-        int nPass = 32 / radixTuple;
-        int nRadix = (int)Mathf.Pow(2, radixTuple);
-        particleShader.SetBuffer(ClearCountersKernel, initRadixCountersID, initRadixCounters);
-        particleShader.SetBuffer(CountRadixLocalKernel, initRadixCountersID, initRadixCounters);
-        particleShader.SetBuffer(RadixOffsetPrefixSumKernel, initRadixCountersID, initRadixCounters);
+        particleShader.SetBuffer(ClearCountersKernel, cellCountersID, cellCounters);
+        particleShader.SetBuffer(CountCellsKernel, cellCountersID, cellCounters);
+        particleShader.SetBuffer(CellPrefixSumKernel, cellCountersID, cellCounters);
 
-        particleShader.SetBuffer(ClearCountersKernel, radixToOffsetID, radixToOffset);
-        particleShader.SetBuffer(RadixOffsetPrefixSumKernel, radixToOffsetID, radixToOffset);
-        particleShader.SetBuffer(SortMapKernel, radixToOffsetID, radixToOffset);
+        particleShader.SetBuffer(ClearCountersKernel, cellToOffsetID, cellToOffset);
+        particleShader.SetBuffer(CellPrefixSumKernel, cellToOffsetID, cellToOffset);
+        particleShader.SetBuffer(SortMapKernel, cellToOffsetID, cellToOffset);
+
+        particleShader.SetBuffer(AssignCellRegionsKernel, cellsStartIndicesID, cellsStartIndices);
         
         int nCountingGroups = nParticles / (64 * nParticlesPerThread);
-        int nCounters =  nRadix * nCountingGroups;
+        int nSummationGroups = (cellsResolution*cellsResolution) / (64 * nCellsPerThread);
 
-        //larger than 4
-        int nSummationGroups = nCounters / (64 * nCountersPerThread);
+        Debug.Log("Counting groups:" + nCountingGroups);
+        Debug.Log("Summation groups:" + nSummationGroups);
 
-        for(int i = 0; i < nPass; i++)
-        {
-            Debug.Log("Sorting by " + i + " bit tuple!");
-            particleShader.SetInt(passIdxID, i);
-            particleShader.SetBuffer(CountRadixLocalKernel, particlesCellsReadID, i % 2 == 0 ?  particleCellsRead : particleCellsWrite);
-            particleShader.SetBuffer(RadixOffsetPrefixSumKernel, particlesCellsReadID, i % 2 == 0 ?  particleCellsRead : particleCellsWrite);
-            particleShader.SetBuffer(SortMapKernel, particlesCellsReadID, i % 2 == 0 ?  particleCellsRead : particleCellsWrite);
+        particleShader.SetBuffer(CountCellsKernel, particlesCellsReadID, particleCellsRead);
+        particleShader.SetBuffer(CellPrefixSumKernel, particlesCellsReadID, particleCellsRead);
+        particleShader.SetBuffer(SortMapKernel, particlesCellsReadID, particleCellsRead);
 
-            particleShader.SetBuffer(CountRadixLocalKernel, particlesCellsWriteID, i % 2 == 0 ?  particleCellsWrite : particleCellsRead);
-            particleShader.SetBuffer(RadixOffsetPrefixSumKernel, particlesCellsWriteID, i % 2 == 0 ?  particleCellsWrite : particleCellsRead);
-            particleShader.SetBuffer(SortMapKernel, particlesCellsWriteID, i % 2 == 0 ?  particleCellsWrite : particleCellsRead);
+        particleShader.SetBuffer(CountCellsKernel, particlesCellsWriteID, particleCellsWrite);
+        particleShader.SetBuffer(CellPrefixSumKernel, particlesCellsWriteID, particleCellsWrite);
+        particleShader.SetBuffer(SortMapKernel, particlesCellsWriteID, particleCellsWrite);
 
-            particleShader.Dispatch(CountRadixLocalKernel, nCountingGroups, 1, 1);
-            particleShader.Dispatch(RadixOffsetPrefixSumKernel, nSummationGroups, 1, 1);
-            particleShader.Dispatch(SortMapKernel, nRadix/64, 1, 1);
-            particleShader.Dispatch(ClearCountersKernel, nSummationGroups, 1, 1);
-        }
+        particleShader.SetBuffer(AssignCellRegionsKernel, particlesCellsWriteID, particleCellsWrite);
+        particleShader.SetBuffer(AssignCellRegionsKernel, particlesCellsReadID, particleCellsRead);
 
-        Debug.Log("Assigning cells arrays starts!");
-        particleShader.SetBuffer(AssignCellRegionsKernel, cellsStartIndicesID, cellsStartIndices);
-        particleShader.SetBuffer(AssignCellRegionsKernel, particlesCellsWriteID, particleCellsRead);
-        particleShader.SetBuffer(AssignCellRegionsKernel, particlesCellsReadID, particleCellsWrite);
+        particleShader.Dispatch(CountCellsKernel, nCountingGroups, 1, 1);
+        particleShader.Dispatch(CellPrefixSumKernel, nSummationGroups, 1, 1);
+        particleShader.Dispatch(SortMapKernel, nCountingGroups, 1, 1);
         particleShader.Dispatch(AssignCellRegionsKernel, nCountingGroups, 1, 1);
+        particleShader.Dispatch(ClearCountersKernel, nSummationGroups, 1, 1);
     }
 
     void Integrate()
@@ -210,13 +196,14 @@ public class GPUController : MonoBehaviour {
         particleShader.SetFloat(boxSizeID, boxSize);
         particleShader.SetFloat(boxCoeffID, boxCoeff);
 
+        particleShader.SetInt(cellsResolutionID, cellsResolution);
+        particleShader.SetInt(cellsRadius, cellsRadius);
         particleShader.SetInt(nParticlesPerThreadID, nParticlesPerThread);
-        particleShader.SetInt(radixTupleID, radixTuple);
-        particleShader.SetInt(nCountersPerThreadID, nCountersPerThread);
+        particleShader.SetInt(nCellsPerThreadID, nCellsPerThread);
 
-        CalculateDensity();
         Integrate();
         SortParticles();
+        CalculateDensity();
 
         material.SetBuffer(positionsId, positionsBuffer);
 
@@ -232,9 +219,9 @@ public class GPUController : MonoBehaviour {
     }  
 
     void OnEnable() {
-        int nCombinations = (int)Mathf.Pow(2, radixTuple);
         int floatSize = sizeof(float);
         int intSize = sizeof(int);
+        int nCells = cellsResolution * cellsResolution;
 
 		positionsBuffer = new ComputeBuffer(nParticles, 3 * floatSize);
         particle0 = new ComputeBuffer(nParticles, 6 * floatSize + 1 * floatSize);
@@ -242,19 +229,15 @@ public class GPUController : MonoBehaviour {
         particleCellsRead = new ComputeBuffer(nParticles, 2 * intSize);
         particleCellsWrite = new ComputeBuffer(nParticles, 2 * intSize);
         fixedParticleToCell = new ComputeBuffer(nParticles, 2 * intSize);
-        cellsStartIndices = new ComputeBuffer(cellsResolution * cellsResolution, intSize);
-        radixToOffset = new ComputeBuffer(nCombinations, intSize);
+        cellsStartIndices = new ComputeBuffer(nCells, intSize);
 
-        int nGroups = nParticles / (64 * nParticlesPerThread);
-        initRadixCounters = new ComputeBuffer(nCombinations * nGroups, intSize);
-
-        int nCounters = nCombinations * nGroups;
-        int nSummationGroups = nCounters / (64 * nCountersPerThread);
+        cellToOffset = new ComputeBuffer(nCells, intSize);
+        cellCounters = new ComputeBuffer(nCells, intSize);
 
         ParticleIntegrationKernel = particleShader.FindKernel("ParticleLoop");
         ParticleDensityCalculationKernel = particleShader.FindKernel("ParticleDensity");
-        CountRadixLocalKernel = particleShader.FindKernel("CountRadixLocal");
-        RadixOffsetPrefixSumKernel = particleShader.FindKernel("RadixOffsetPrefixSum");
+        CountCellsKernel = particleShader.FindKernel("CountCells");
+        CellPrefixSumKernel = particleShader.FindKernel("CellPrefixSum");
         SortMapKernel = particleShader.FindKernel("SortMap");
         AssignCellRegionsKernel = particleShader.FindKernel("AssignCellRegions");
         ClearCountersKernel = particleShader.FindKernel("ClearCounters");
@@ -283,8 +266,8 @@ public class GPUController : MonoBehaviour {
         cellsStartIndices.Release();
         cellsStartIndices = null;
 
-        radixToOffset.Release();
-        radixToOffset = null;
+        cellToOffset.Release();
+        cellToOffset = null;
     }
 
 	void Update () 

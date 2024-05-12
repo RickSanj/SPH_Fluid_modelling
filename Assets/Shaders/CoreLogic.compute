@@ -434,49 +434,40 @@ void ParticleDensity(uint3 id : SV_DispatchThreadID)
 	particleWrite[currentParticleIdx] = particle;
 }
 
-RWStructuredBuffer<uint> initRadixCounters;
-uint passIdx;
+RWStructuredBuffer<uint> cellCounters;
 uint nParticlesPerThread;
-uint radixTuple = 8;
 
-#pragma kernel CountRadixLocal
+#pragma kernel CountCells
 [numthreads(64,1,1)]
-void CountRadixLocal(uint3 id : SV_DispatchThreadID)
+void CountCells(uint3 id : SV_DispatchThreadID)
 {
 	uint startIdx = id.x * nParticlesPerThread;
 	uint endIdx = startIdx + nParticlesPerThread;
 
-	uint nRadix = pow(2, radixTuple);
-
-	uint radixGroupIdx = floor(id.x / 64) * nRadix;
-
 	for(uint i = startIdx; i < endIdx; i++)
 	{
-		uint radixValue = (nRadix-1) & (particlesCellsRead[i].x >> (passIdx * radixTuple));
-		uint radixIdx = radixGroupIdx + radixValue;
-
-		InterlockedAdd(initRadixCounters[radixIdx], 1);
+		uint cellIdx = particlesCellsRead[i].x;
+		InterlockedAdd(cellCounters[cellIdx], 1);
 	}
 }
 
-RWStructuredBuffer<uint> radixToOffset; 
-uint nCountersPerThread;
+RWStructuredBuffer<uint> cellToOffset; 
+uint nCellsPerThread;
 
-#pragma kernel RadixOffsetPrefixSum
+#pragma kernel CellPrefixSum
 [numthreads(64,1,1)]
-void RadixOffsetPrefixSum(uint3 id : SV_DispatchThreadID)
+void CellPrefixSum(uint3 id : SV_DispatchThreadID)
 {
-	uint threadCountersStartIdx = id.x * nCountersPerThread;
-	uint threadCountersEndIdx = threadCountersStartIdx + nCountersPerThread;
-	uint nRadix = pow(2, radixTuple);
+	uint threadCountersStartIdx = id.x * nCellsPerThread;
+	uint threadCountersEndIdx = threadCountersStartIdx + nCellsPerThread;
+	uint nCells = cellsResolution*cellsResolution;
 
 	for(uint i = threadCountersStartIdx; i < threadCountersEndIdx; i++)
 	{
-		uint localRadixCount = initRadixCounters[i];
-		uint radixIdx = i % nRadix;
-		for(uint j = radixIdx+1; j < nRadix; j++)
+		uint cellCount = cellCounters[i];
+		for(uint j = i+1; j < nCells; j++)
 		{
-			InterlockedAdd(radixToOffset[j], localRadixCount);
+			InterlockedAdd(cellToOffset[j], cellCount);
 		}
 	}
 }
@@ -485,17 +476,16 @@ void RadixOffsetPrefixSum(uint3 id : SV_DispatchThreadID)
 [numthreads(64,1,1)]
 void SortMap(uint3 id : SV_DispatchThreadID)
 {
-	uint threadRadix = id.x;
-	uint nRadix = pow(2, radixTuple);
-	for(uint i = 0; i < nParticles; i++)
-	{
-		uint radixValue = (nRadix-1) & (particlesCellsRead[i].x >> (passIdx * radixTuple));
-		if(radixValue != threadRadix){continue;}
+	uint startIdx = id.x * nParticlesPerThread;
+	uint endIdx = startIdx + nParticlesPerThread;
 
-		uint2 particleToCells = particlesCellsRead[i];
-		uint sortedArrIdx = radixToOffset[threadRadix];
-		particlesCellsWrite[sortedArrIdx] = particleToCells;
-		radixToOffset[threadRadix]++;
+	for(uint i = startIdx; i < endIdx; i++)
+	{
+		uint cellIdx = particlesCellsRead[i].x;
+		uint offset;
+		InterlockedAdd(cellToOffset[cellIdx], 1, offset);
+
+		particlesCellsWrite[offset] = particlesCellsRead[i];
 	}
 }
 
@@ -523,12 +513,12 @@ void AssignCellRegions(uint3 id : SV_DispatchThreadID)
 [numthreads(64,1,1)]
 void ClearCounters(uint3 id : SV_DispatchThreadID)
 {
-	uint threadCountersStartIdx = id.x * nCountersPerThread;
-	uint threadCountersEndIdx = threadCountersStartIdx + nCountersPerThread;
+	uint threadCountersStartIdx = id.x * nCellsPerThread;
+	uint threadCountersEndIdx = threadCountersStartIdx + nCellsPerThread;
 
 	for(uint i = threadCountersStartIdx; i < threadCountersEndIdx; i++)
 	{
-		initRadixCounters[i] = 0;		
+		cellCounters[i] = 0;
+		cellToOffset[i] = 0;		
 	}	
-	radixToOffset[id.x % pow(2, radixTuple)] = 0;
 }
