@@ -23,7 +23,7 @@ public class GPUController : MonoBehaviour
     ComputeShader particleShader;
 
     // [SerializeField, Range(2, 5000)]
-	int nParticles = 4800;
+	int nParticles = 320;
 
     [SerializeField, Range(1, 10)]
     float WPolyh = 0;
@@ -65,7 +65,7 @@ public class GPUController : MonoBehaviour
     int cellsResolution = 128;
     int cellsRadius = 15;
     int nParticlesPerThread = 1;
-    int nCellsPerThread = 2;
+    int nCellsPerThread = 8;
 
     static readonly int
         cellsResolutionID = Shader.PropertyToID("cellsResolution"),
@@ -140,9 +140,49 @@ public class GPUController : MonoBehaviour
         particleShader.SetBuffer(AssignCellRegionsKernel, particlesCellsReadID, particleCellsRead);
 
         particleShader.Dispatch(CountCellsKernel, nCountingGroups, 1, 1);
+
+        // int[] counts = new int[cellsResolution*cellsResolution];
+        // cellCounters.GetData(counts);
+        // Debug.Log("-------------------------------------------------------------");
+        // foreach(int count in counts)
+        // {
+        //     Debug.Log(count);
+        // }
+
         particleShader.Dispatch(CellPrefixSumKernel, nSummationGroups, 1, 1);
+
+        // int[] offsets = new int[cellsResolution*cellsResolution];
+        // cellToOffset.GetData(offsets);
+
+        // Debug.Log("-------------------------------------------------------------");
+        // for(int i = 0; i < cellsResolution*cellsResolution; i++)
+        // {
+        //     if(offsets[i] == 0){continue;}
+        //     Debug.Log("Cell " + i + " has offset " + offsets[i]);
+        // }
+
         particleShader.Dispatch(SortMapKernel, nCountingGroups, 1, 1);
+
+        // int[,] sorted = new int[nParticles, 2];
+        // particleCellsWrite.GetData(sorted);
+
+        // Debug.Log("-------------------------------------------------------------");
+        // for(int i = 0; i < nParticles; i++)
+        // {
+        //     Debug.Log("At " + i + " pair:"+sorted[i,0] + "/" + sorted[i,1]);
+        // }
+
         particleShader.Dispatch(AssignCellRegionsKernel, nCountingGroups, 1, 1);
+
+        // int[] indices = new int[cellsResolution*cellsResolution];
+        // cellsStartIndices.GetData(indices);
+
+        // Debug.Log("-------------------------------------------------------------");
+        // for(int i = 0; i < cellsResolution*cellsResolution; i++)
+        // {
+        //     if(indices[i] == 0){continue;}
+        //     Debug.Log("Cell " + i + " has start at " + indices[i]);
+        // }
     }
 
     void Integrate()
@@ -160,6 +200,26 @@ public class GPUController : MonoBehaviour
 
         int nGroups = Mathf.CeilToInt(nParticles / 64.0f);
 		particleShader.Dispatch(ParticleIntegrationKernel, nGroups, 1, 1);
+
+        // Debug.Log("-------------------------------------------------------------");
+
+        // int[,] newPairs = new int[nParticles,2];
+        // particleCellsRead.GetData(newPairs);
+
+        // for(int i = 0; i < nParticles; i++)
+        // {
+        //     Debug.Log("Pair:"+newPairs[i,0]+";"+newPairs[i,1]);
+        // }
+        
+        // Debug.Log("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+
+        // int[,] newCoords = new int[nParticles, 2];
+        // fixedParticleToCell.GetData(newCoords);
+
+        // for(int i = 0; i < nParticles; i++)
+        // {
+        //     Debug.Log("Coords :"+newCoords[i,0]+";"+newCoords[i,1]);
+        // }
 
         frame++;
     } 

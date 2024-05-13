@@ -155,7 +155,7 @@ float GetDensityAtParticle(uint3 id)
 			uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
 			for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
 			{
-				density += WPoly(particleRead[currentParticleIdx].position - particleRead[particlesCellsWrite[neighbour].y].position, WPolyh);
+				density += WPoly(particleRead[currentParticleIdx].position - particleRead[particlesCellsRead[neighbour].y].position, WPolyh);
 			}
 		}
 	}
@@ -191,8 +191,7 @@ float3 GetTensionNorm(uint3 id)
 			uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
 			for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
 			{
-
-				float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[particlesCellsWrite[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsWrite[neighbour].y].density, 0.0001);
+				float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[particlesCellsWrite[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsRead[neighbour].y].density, 0.0001);
 				newNorm += normContribution;
 			}
 		}
@@ -224,7 +223,7 @@ float GetTensionLaplacian(uint3 id)
 			uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
 			for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
 			{
-				float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[particlesCellsWrite[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsWrite[neighbour].y].density, 0.0001);
+				float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[particlesCellsRead[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsWrite[neighbour].y].density, 0.0001);
 				newLaplacian += laplacianContribution;
 			}
 		}
@@ -302,7 +301,7 @@ float3 GetViscosityAtParticle(Particle currentParticle, uint currentParticleIdx)
 			uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
 			for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
 			{
-				Particle targetParticle = particleRead[particlesCellsWrite[neighbour].y];
+				Particle targetParticle = particleRead[particlesCellsRead[neighbour].y];
 				float3 deltaPos = currentParticle.position - targetParticle.position;
 
 				float weightV = WViscLaplace(deltaPos, WPolyh);
@@ -338,7 +337,7 @@ float3 GetPressureAtParticle(Particle currentParticle, uint currentParticleIdx)
 			uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
 			for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
 			{
-				Particle targetParticle = particleRead[particlesCellsWrite[neighbour].y];
+				Particle targetParticle = particleRead[particlesCellsRead[neighbour].y];
 				float3 deltaPos = currentParticle.position - targetParticle.position;
 
 				float weightP = WPoly(deltaPos, WPolyh);
@@ -409,7 +408,7 @@ void ParticleLoop(uint3 id : SV_DispatchThreadID)
 	particleWrite[currentParticleIdx] = prevParticle;
 	particlePositions[currentParticleIdx] = prevParticle.position;
 
-	uint cellSize = floor(BOX_SCALE/cellsResolution);
+	float cellSize = BOX_SCALE/cellsResolution;
 
 	uint xCoord = abs(floor((prevParticle.position.x + BOX_SCALE/2) / cellSize));
 	uint yCoord = abs(floor((prevParticle.position.y + BOX_SCALE/2) / cellSize));
@@ -499,11 +498,10 @@ void AssignCellRegions(uint3 id : SV_DispatchThreadID)
 	uint startIdx = id.x * nParticlesPerThread;
 	uint endIdx = startIdx + nParticlesPerThread;
 
-	uint prevCellIdx = particlesCellsWrite[max(startIdx-1, 0)].x;
+	uint prevCellIdx = startIdx == 0 ? cellsResolution*cellsResolution : particlesCellsWrite[max(startIdx-1, 0)].x;
 	for(uint i = startIdx; i < endIdx; i++)
 	{
 		uint currentCellIdx = particlesCellsWrite[i].x;
-		particlesCellsRead[i] = particlesCellsWrite[i];
 		if(currentCellIdx != prevCellIdx)
 		{
 			cellsStartIndices[currentCellIdx] = i;
