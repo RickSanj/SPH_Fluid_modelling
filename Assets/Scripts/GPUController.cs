@@ -62,7 +62,7 @@ public class GPUController : MonoBehaviour
     [SerializeField, Range(0,20)]
     float boxCoeff = 1f;
 
-    int cellsResolution = 128;
+    int cellsResolution = 64;
     int cellsRadius = 15;
     int nParticlesPerThread = 1;
     int nCellsPerThread = 8;
@@ -219,6 +219,16 @@ public class GPUController : MonoBehaviour
         // for(int i = 0; i < nParticles; i++)
         // {
         //     Debug.Log("Coords :"+newCoords[i,0]+";"+newCoords[i,1]);
+        // }
+
+        // Debug.Log("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+
+        // float[,] newAccelerations = new float[nParticles, 3];
+        // accelerations.GetData(newAccelerations);
+
+        // for(int i = 0; i < nParticles; i++)
+        // {
+        //     Debug.Log("Acceleration :"+newAccelerations[i,0]+";"+newAccelerations[i,1]+";"+newAccelerations[i,2]);
         // }
 
         frame++;

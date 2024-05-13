@@ -168,74 +168,80 @@ float3 GetGravityAtParticle(uint3 id)
 	return particleMass * gravityVector;
 }
 
-float3 GetTensionNorm(uint3 id)
+float3 GetTensionNorm(uint3 id, uint neighbour)
 {
 	uint currentParticleIdx = id.x;
-	float3 newNorm = float3(0,0,0);
+	float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[particlesCellsWrite[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsRead[neighbour].y].density, 0.0001);
+	return -normContribution;
 
-	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
+	// float3 newNorm = float3(0,0,0);
 
-	uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
-	uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
+	// uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
 
-	uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
-	uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
+	// uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
+	// uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
 
-	for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
-	{
-		for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
-		{
-			if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
+	// uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
+	// uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
 
-			uint cellCoord = x + cellsResolution*y;
-			uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
-			for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
-			{
-				float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[particlesCellsWrite[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsRead[neighbour].y].density, 0.0001);
-				newNorm += normContribution;
-			}
-		}
-	}
+	// for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
+	// {
+	// 	for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
+	// 	{
+	// 		if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
 
-	return -1 * newNorm * particleMass;
+	// 		uint cellCoord = x + cellsResolution*y;
+	// 		uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
+	// 		for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
+	// 		{
+	// 			float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[particlesCellsWrite[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsRead[neighbour].y].density, 0.0001);
+	// 			newNorm -= normContribution;
+	// 		}
+	// 	}
+	// }
+
+	// return newNorm * particleMass;
 }
 
-float GetTensionLaplacian(uint3 id)
+float GetTensionLaplacian(uint3 id, uint neighbour)
 {
 	uint currentParticleIdx = id.x;
-	float newLaplacian = 0;
+	float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[particlesCellsRead[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsWrite[neighbour].y].density, 0.0001);
 
-	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
+	return laplacianContribution;
 
-	uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
-	uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
+	// float newLaplacian = 0;
 
-	uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
-	uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
+	// uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
 
-	for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
-	{
-		for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
-		{
-			if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
+	// uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
+	// uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
 
-			uint cellCoord = x + cellsResolution*y;
-			uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
-			for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
-			{
-				float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[particlesCellsRead[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsWrite[neighbour].y].density, 0.0001);
-				newLaplacian += laplacianContribution;
-			}
-		}
-	}
+	// uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
+	// uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
 
-	return newLaplacian * particleMass;
+	// for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
+	// {
+	// 	for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
+	// 	{
+	// 		if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
+
+	// 		uint cellCoord = x + cellsResolution*y;
+	// 		uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
+	// 		for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
+	// 		{
+	// 			float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[particlesCellsRead[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsWrite[neighbour].y].density, 0.0001);
+	// 			newLaplacian += laplacianContribution;
+	// 		}
+	// 	}
+	// }
+
+	// return newLaplacian * particleMass;
 }
 
-float3 GetTensionAtPoint(uint3 id)
+float3 GetTensionAtPoint(float3 norm, float laplacian)
 {
-	float3 norm = GetTensionNorm(id);
-	return -tensionCoefficient * GetTensionLaplacian(id) * norm / max(length(norm), 0.0001);
+	return -tensionCoefficient * laplacian * norm / max(length(norm), 0.0001);
 }
 
 float smoothstep(float x, float a, float b) {
@@ -279,91 +285,144 @@ float EquationOfState(float density, float restDensity)
 	return stiffnessCoefficient * (density - restDensity);
 }
 
-float3 GetViscosityAtParticle(Particle currentParticle, uint currentParticleIdx)
+float3 GetViscosityAtParticle(Particle currentParticle, uint currentParticleIdx, uint neighbour)
 {
-	float3 viscosity = float3(0.0,0.0,0.0);
+	Particle targetParticle = particleRead[particlesCellsRead[neighbour].y];
+	float3 deltaPos = currentParticle.position - targetParticle.position;
 
-	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
+	float weightV = WViscLaplace(deltaPos, WPolyh);
+	float3 dir = deltaPos / max(length(deltaPos), 0.0001);
+	float3 relativeVelocity = currentParticle.velocity - targetParticle.velocity;
+	return -viscosityCoefficient * dot(relativeVelocity, dir) * weightV * WPolyGradient(deltaPos, WPolyh) * particleMass;;
 
-	uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
-	uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
+	// float3 viscosity = float3(0.0,0.0,0.0);
+	// uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
 
-	uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
-	uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
+	// uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
+	// uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
 
-	for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
-	{
-		for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
-		{
-			if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
+	// uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
+	// uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
 
-			uint cellCoord = x + cellsResolution*y;
-			uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
-			for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
-			{
-				Particle targetParticle = particleRead[particlesCellsRead[neighbour].y];
-				float3 deltaPos = currentParticle.position - targetParticle.position;
+	// for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
+	// {
+	// 	for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
+	// 	{
+	// 		if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
 
-				float weightV = WViscLaplace(deltaPos, WPolyh);
-				float3 dir = deltaPos / max(length(deltaPos), 0.0001);
-				float3 relativeVelocity = currentParticle.velocity - targetParticle.velocity;
-				viscosity -= viscosityCoefficient * dot(relativeVelocity, dir) * weightV * WPolyGradient(deltaPos, WPolyh) * particleMass;;
-			}
-		}
-	}
+	// 		uint cellCoord = x + cellsResolution*y;
+	// 		uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
+	// 		for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
+	// 		{
+	// 			Particle targetParticle = particleRead[particlesCellsRead[neighbour].y];
+	// 			float3 deltaPos = currentParticle.position - targetParticle.position;
+
+	// 			float weightV = WViscLaplace(deltaPos, WPolyh);
+	// 			float3 dir = deltaPos / max(length(deltaPos), 0.0001);
+	// 			float3 relativeVelocity = currentParticle.velocity - targetParticle.velocity;
+	// 			viscosity -= viscosityCoefficient * dot(relativeVelocity, dir) * weightV * WPolyGradient(deltaPos, WPolyh) * particleMass;;
+	// 		}
+	// 	}
+	// }
 	
-	return viscosity;
+	// return viscosity;
 }
 
-float3 GetPressureAtParticle(Particle currentParticle, uint currentParticleIdx)
+float3 GetPressureAtParticle(Particle currentParticle, uint currentParticleIdx, uint neighbour)
 {
-	float3 newPressure = float3(0.0,0.0,0.0);
+	Particle targetParticle = particleRead[particlesCellsRead[neighbour].y];
+	float3 deltaPos = currentParticle.position - targetParticle.position;
 
-	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
+	float weightP = WPoly(deltaPos, WPolyh);
+	float density = 0.5 * (currentParticle.density + targetParticle.density);
+	float pressure = EquationOfState(density, restDensity);
+	pressure *= weightP;
 
-	uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
-	uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
+	return pressure * deltaPos * particleMass;
 
-	uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
-	uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
+	// float3 newPressure = float3(0.0,0.0,0.0);
+	// uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
 
-	for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
-	{
-		for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
-		{
-			if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
+	// uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
+	// uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
 
-			uint cellCoord = x + cellsResolution*y;
-			uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
-			for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
-			{
-				Particle targetParticle = particleRead[particlesCellsRead[neighbour].y];
-				float3 deltaPos = currentParticle.position - targetParticle.position;
+	// uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
+	// uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
 
-				float weightP = WPoly(deltaPos, WPolyh);
-				float density = 0.5 * (currentParticle.density + targetParticle.density);
-				float pressure = EquationOfState(density, restDensity);
-				pressure *= weightP;
+	// for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
+	// {
+	// 	for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
+	// 	{
+	// 		if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
 
-				newPressure += pressure * deltaPos * particleMass;
-			}
-		}
-	}
-	return newPressure;
+	// 		uint cellCoord = x + cellsResolution*y;
+	// 		uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
+	// 		for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
+	// 		{
+	// 			Particle targetParticle = particleRead[particlesCellsRead[neighbour].y];
+	// 			float3 deltaPos = currentParticle.position - targetParticle.position;
+
+	// 			float weightP = WPoly(deltaPos, WPolyh);
+	// 			float density = 0.5 * (currentParticle.density + targetParticle.density);
+	// 			float pressure = EquationOfState(density, restDensity);
+	// 			pressure *= weightP;
+
+	// 			newPressure += pressure * deltaPos * particleMass;
+	// 		}
+	// 	}
+	// }
+	// return newPressure;
 }
 
 //need to add gradient spline kernel 
 float3 CalculateAcceleration(uint3 particleId)
 {
 	uint currentParticleIdx = particleId.x;
-	Particle currentParticle = particleRead[currentParticleIdx];
 
 	float3 acceleration = float3(0,0,0);
 
-	float3 newPressure = GetPressureAtParticle(currentParticle, currentParticleIdx);
-	float3 newViscosity = GetViscosityAtParticle(currentParticle, currentParticleIdx);
+	float3 newPressure = float3(0.0,0.0,0.0);
+	float3 newViscosity = float3(0.0,0.0,0.0);
+	float newLaplacian = 0;
+	float3 newNorm = float3(0,0,0);
+
+	Particle currentParticle = particleRead[currentParticleIdx];
+
+	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
+
+	uint cellLeftStartIdx = max(0, particleCellCoords.x - cellsRadius);
+	uint cellRightEndIdx = min(cellsResolution-1, particleCellCoords.x + cellsRadius);
+
+	uint cellTopStartIdx = max(0, particleCellCoords.y - cellsRadius);
+	uint cellBottomEndIdx = min(cellsResolution-1, particleCellCoords.y + cellsRadius);
+
+	for(uint x = cellLeftStartIdx; x <= cellRightEndIdx; x++)
+	{
+		for(uint y = cellTopStartIdx; y <= cellBottomEndIdx; y++)
+		{
+			if(x == particleCellCoords.x && y == particleCellCoords.y){continue;}
+
+			uint cellCoord = x + cellsResolution*y;
+			uint bound = cellsStartIndices[cellCoord] + cellCounters[cellCoord];
+			for(uint neighbour = cellsStartIndices[cellCoord]; neighbour < bound; neighbour++)
+			{
+				newPressure += GetPressureAtParticle(currentParticle, currentParticleIdx, neighbour);
+				newViscosity += GetViscosityAtParticle(currentParticle, currentParticleIdx, neighbour);
+				newLaplacian += GetTensionLaplacian(particleId, neighbour);
+				newNorm += GetTensionNorm(particleId, neighbour); 
+			}
+		}
+	}
+
+	newNorm *= particleMass;
+	newLaplacian *= particleMass;
+
+	// float3 newPressure = GetPressureAtParticle(currentParticle, currentParticleIdx);
+	// float3 newViscosity = GetViscosityAtParticle(currentParticle, currentParticleIdx);
 	float3 newGravity = GetGravityAtParticle(particleId);
-	float3 newTension = GetTensionAtPoint(particleId);
+	float3 newTension = GetTensionAtPoint(newNorm, newLaplacian);
+
+	// accelerations[currentParticleIdx] = newTension + newViscosity + newPressure;
 
 	acceleration += (newTension + newGravity + newViscosity + newPressure)/particleMass;
 
