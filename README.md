@@ -1,2 +1,5 @@
-# SPH_Fluid_modelling
-Editor version: 2022.3.21f1
+# 🌊SPH Fluid modelling🌊
+
+### Our wiki with all necessary information about the project:
+
+### [Wiki](https://github.com/RickSanj/SPH_Fluid_modelling/wiki)
