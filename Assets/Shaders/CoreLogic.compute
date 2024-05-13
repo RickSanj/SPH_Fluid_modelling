@@ -411,7 +411,7 @@ void ParticleLoop(uint3 id : SV_DispatchThreadID)
 	particleWrite[currentParticleIdx] = prevParticle;
 	particlePositions[currentParticleIdx] = prevParticle.position;
 
-	uint cellSize = BOX_SCALE/cellsResolution;
+	uint cellSize = floor(BOX_SCALE/cellsResolution);
 	uint newCellIdx = floor(prevParticle.position.x / cellSize) + cellsResolution*floor(prevParticle.position.y / cellSize);
 
 	fixedParticleToCell[currentParticleIdx] = uint2(floor(prevParticle.position.x / cellSize), floor(prevParticle.position.y / cellSize));

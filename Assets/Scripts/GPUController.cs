@@ -1,7 +1,7 @@
 using UnityEngine;
 
-public class GPUController : MonoBehaviour {
-
+public class GPUController : MonoBehaviour 
+{
     ComputeBuffer positionsBuffer;
     ComputeBuffer particle0;
     ComputeBuffer particle1;
@@ -23,7 +23,7 @@ public class GPUController : MonoBehaviour {
     ComputeShader particleShader;
 
     // [SerializeField, Range(2, 5000)]
-	int nParticles = 6400;
+	int nParticles = 4800;
 
     [SerializeField, Range(1, 10)]
     float WPolyh = 0;
@@ -63,9 +63,9 @@ public class GPUController : MonoBehaviour {
     float boxCoeff = 1f;
 
     int cellsResolution = 128;
-    int cellsRadius = 50;
-    int nParticlesPerThread = 5;
-    int nCellsPerThread = 8;
+    int cellsRadius = 10;
+    int nParticlesPerThread = 1;
+    int nCellsPerThread = 2;
 
     static readonly int
         cellsResolutionID = Shader.PropertyToID("cellsResolution"),
@@ -78,7 +78,6 @@ public class GPUController : MonoBehaviour {
         cellCountersID = Shader.PropertyToID("cellCounters"),
         nCellsPerThreadID = Shader.PropertyToID("nCellsPerThread"),
         nParticlesPerThreadID = Shader.PropertyToID("nParticlesPerThread"),
-    
 		positionsId = Shader.PropertyToID("particlePositions"),
 		nParticlesID = Shader.PropertyToID("nParticles"),
         frameID = Shader.PropertyToID("frame"),
@@ -121,9 +120,6 @@ public class GPUController : MonoBehaviour {
         
         int nCountingGroups = nParticles / (64 * nParticlesPerThread);
         int nSummationGroups = (cellsResolution*cellsResolution) / (64 * nCellsPerThread);
-
-        Debug.Log("Counting groups:" + nCountingGroups);
-        Debug.Log("Summation groups:" + nSummationGroups);
 
         particleShader.SetBuffer(CountCellsKernel, particlesCellsReadID, particleCellsRead);
         particleShader.SetBuffer(CellPrefixSumKernel, particlesCellsReadID, particleCellsRead);
@@ -226,11 +222,11 @@ public class GPUController : MonoBehaviour {
 		positionsBuffer = new ComputeBuffer(nParticles, 3 * floatSize);
         particle0 = new ComputeBuffer(nParticles, 6 * floatSize + 1 * floatSize);
         particle1 = new ComputeBuffer(nParticles, 6 * floatSize + 1 * floatSize);
+
         particleCellsRead = new ComputeBuffer(nParticles, 2 * intSize);
         particleCellsWrite = new ComputeBuffer(nParticles, 2 * intSize);
         fixedParticleToCell = new ComputeBuffer(nParticles, 2 * intSize);
         cellsStartIndices = new ComputeBuffer(nCells, intSize);
-
         cellToOffset = new ComputeBuffer(nCells, intSize);
         cellCounters = new ComputeBuffer(nCells, intSize);
 
