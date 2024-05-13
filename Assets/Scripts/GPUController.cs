@@ -63,7 +63,7 @@ public class GPUController : MonoBehaviour
     float boxCoeff = 1f;
 
     int cellsResolution = 128;
-    int cellsRadius = 10;
+    int cellsRadius = 15;
     int nParticlesPerThread = 1;
     int nCellsPerThread = 2;
 
@@ -143,6 +143,7 @@ public class GPUController : MonoBehaviour
     {
         particleShader.SetBuffer(ParticleIntegrationKernel, fixedParticleToCellID, fixedParticleToCell);
         particleShader.SetBuffer(ParticleIntegrationKernel, cellsStartIndicesID, cellsStartIndices);
+        particleShader.SetBuffer(ParticleIntegrationKernel, cellCountersID, cellCounters);
 
         particleShader.SetBuffer(ParticleIntegrationKernel, particlesCellsWriteID, particleCellsRead);
         particleShader.SetBuffer(ParticleIntegrationKernel, particlesCellsReadID, particleCellsWrite);
@@ -150,6 +151,7 @@ public class GPUController : MonoBehaviour
         particleShader.SetBuffer(ParticleIntegrationKernel, positionsId, positionsBuffer);
         particleShader.SetBuffer(ParticleIntegrationKernel, "particleRead", frame % 2 == 0 ? particle0 : particle1);
         particleShader.SetBuffer(ParticleIntegrationKernel, "particleWrite", frame % 2 == 0 ? particle1 : particle0);
+
         int nGroups = Mathf.CeilToInt(nParticles / 64.0f);
 		particleShader.Dispatch(ParticleIntegrationKernel, nGroups, 1, 1);
 
@@ -160,12 +162,14 @@ public class GPUController : MonoBehaviour
     {
         particleShader.SetBuffer(ParticleDensityCalculationKernel, fixedParticleToCellID, fixedParticleToCell);
         particleShader.SetBuffer(ParticleDensityCalculationKernel, cellsStartIndicesID, cellsStartIndices);
+        particleShader.SetBuffer(ParticleDensityCalculationKernel, cellCountersID, cellCounters);
 
         particleShader.SetBuffer(ParticleDensityCalculationKernel, particlesCellsWriteID, particleCellsRead);
         particleShader.SetBuffer(ParticleDensityCalculationKernel, particlesCellsReadID, particleCellsWrite);
 
         particleShader.SetBuffer(ParticleDensityCalculationKernel, "particleRead", frame % 2 == 0 ? particle0 : particle1);
         particleShader.SetBuffer(ParticleDensityCalculationKernel, "particleWrite", frame % 2 == 0 ? particle1 : particle0);
+
         int nGroups = Mathf.CeilToInt(nParticles / 64.0f);
 		particleShader.Dispatch(ParticleDensityCalculationKernel, nGroups, 1, 1);
 
