@@ -1,4 +1,4 @@
-# SPH Fluid modelling
+# 🌊SPH Fluid modelling🌊
 
 ### Our wiki with all necessary information about the project:
 
