@@ -106,13 +106,20 @@ public class GPUController : MonoBehaviour
     int AssignCellRegionsKernel;
     int ClearCountersKernel;
 
-    void SortParticles()
+    void ClearCounters()
     {
         particleShader.SetBuffer(ClearCountersKernel, cellCountersID, cellCounters);
+        particleShader.SetBuffer(ClearCountersKernel, cellToOffsetID, cellToOffset);
+        int nSummationGroups = (cellsResolution*cellsResolution) / (64 * nCellsPerThread);
+
+        particleShader.Dispatch(ClearCountersKernel, nSummationGroups, 1, 1);
+    }   
+
+    void SortParticles()
+    {
         particleShader.SetBuffer(CountCellsKernel, cellCountersID, cellCounters);
         particleShader.SetBuffer(CellPrefixSumKernel, cellCountersID, cellCounters);
 
-        particleShader.SetBuffer(ClearCountersKernel, cellToOffsetID, cellToOffset);
         particleShader.SetBuffer(CellPrefixSumKernel, cellToOffsetID, cellToOffset);
         particleShader.SetBuffer(SortMapKernel, cellToOffsetID, cellToOffset);
 
@@ -136,7 +143,6 @@ public class GPUController : MonoBehaviour
         particleShader.Dispatch(CellPrefixSumKernel, nSummationGroups, 1, 1);
         particleShader.Dispatch(SortMapKernel, nCountingGroups, 1, 1);
         particleShader.Dispatch(AssignCellRegionsKernel, nCountingGroups, 1, 1);
-        particleShader.Dispatch(ClearCountersKernel, nSummationGroups, 1, 1);
     }
 
     void Integrate()
@@ -202,6 +208,7 @@ public class GPUController : MonoBehaviour
         particleShader.SetInt(nCellsPerThreadID, nCellsPerThread);
 
         Integrate();
+        ClearCounters();
         SortParticles();
         CalculateDensity();
 
