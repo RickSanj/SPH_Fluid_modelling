@@ -282,7 +282,7 @@ float EquationOfState(float density, float restDensity)
 
 float3 GetViscosityAtParticle(Particle currentParticle, uint currentParticleIdx)
 {
-	float3 viscosity;
+	float3 viscosity = float3(0.0,0.0,0.0);
 
 	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
 
@@ -318,7 +318,7 @@ float3 GetViscosityAtParticle(Particle currentParticle, uint currentParticleIdx)
 
 float3 GetPressureAtParticle(Particle currentParticle, uint currentParticleIdx)
 {
-	float3 newPressure;
+	float3 newPressure = float3(0.0,0.0,0.0);
 
 	uint2 particleCellCoords = fixedParticleToCell[currentParticleIdx];
 
