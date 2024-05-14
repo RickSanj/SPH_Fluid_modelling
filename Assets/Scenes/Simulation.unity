@@ -392,10 +392,10 @@ MonoBehaviour:
   WPolyh: 8
   WSpikyh: 8
   WVisch: 8
-  viscosity: 5.5
+  viscosity: 8
   restDensity: 4
   stiffnessCoefficient: 11
-  tensionCoefficient: 5.5
+  tensionCoefficient: 8.5
   gravityStrength: 13
   timeStep: 0
   boxSize: 130

@@ -328,7 +328,7 @@ void ParticleLoop(uint3 id : SV_DispatchThreadID)
 	if(frame == 0)
 	{
 		prevParticle.velocity = float3(0.0,0.0,0.0);
-		prevParticle.position = float3(pcgf(currentParticleIdx) * 80-20, pcgf(currentParticleIdx+7) * 30, 0.0);
+		prevParticle.position = float3(pcgf(currentParticleIdx) * 100-40, pcgf(currentParticleIdx+7) * 30, 0.0);
 		prevParticle.density = 1;
 
 		particleRead[currentParticleIdx] = prevParticle;
