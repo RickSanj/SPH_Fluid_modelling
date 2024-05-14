@@ -6,7 +6,10 @@ struct Particle
     float3 position;
 	float3 velocity;
     float density;
+	float3 velocity_half;
+	float3 velocity_half_prev;
 };
+
 RWStructuredBuffer<float3> particlePositions;
 RWStructuredBuffer<Particle> particleRead;
 RWStructuredBuffer<Particle> particleWrite;
@@ -256,36 +259,53 @@ float3 CalculateAcceleration(uint3 particleId)
 void ParticleLoop(uint3 id : SV_DispatchThreadID)
 {
 	uint currentParticleIdx = id.x;
+
 	if(currentParticleIdx >= nParticles){return;}
 
 	Particle prevParticle = particleRead[currentParticleIdx];
+	Particle newParticle = prevParticle;
+
 	if(frame == 0)
 	{
 		prevParticle.velocity = float3(0.0,0.0,0.0);
 		prevParticle.position = float3(pcgf(currentParticleIdx) * 20-4, pcgf(currentParticleIdx+7) * 10-4, 0.0);
 		prevParticle.density = 1;
+		prevParticle.velocity_half = float3(0.0, 0.0, 0.0);
+        prevParticle.velocity_half_prev = float3(0.0, 0.0, 0.0);
 
 		particleRead[currentParticleIdx] = prevParticle;
 	} else
 	{
 		float3 frameAcceleration = CalculateAcceleration(id);
-		prevParticle.velocity += timeStep * frameAcceleration;
-		prevParticle.position += prevParticle.velocity * timeStep;
+		if (frame == 1){
+            newParticle.velocity_half = prevParticle.velocity + 0.5 * timeStep * frameAcceleration;
+        }
+		else{
+			newParticle.velocity_half = prevParticle.velocity_half_prev + timeStep * frameAcceleration;
+		}
 
-		if(abs(prevParticle.position.x) > BOX_SCALE/2)
-		{
-			prevParticle.position.x = BOX_SCALE/2 * sign(prevParticle.position.x);
-			prevParticle.velocity.x *= -1 * BOX_INFLUENCE;
-		}
-		if(abs(prevParticle.position.y) > BOX_SCALE/2)
-		{
-			prevParticle.position.y = BOX_SCALE/2 * sign(prevParticle.position.y);
-			prevParticle.velocity.y *= -1 * BOX_INFLUENCE;
-		}
+		newParticle.position = prevParticle.position + newParticle.velocity_half * timeStep;
+		// Euler
+		// prevParticle.velocity += timeStep * frameAcceleration;
+		// prevParticle.position += prevParticle.velocity * timeStep;
+
+        if (abs(newParticle.position.x) > BOX_SCALE / 2){
+            newParticle.position.x = BOX_SCALE / 2 * sign(newParticle.position.x);
+            newParticle.velocity_half.x *= -1 * BOX_INFLUENCE;
+        }
+        if (abs(newParticle.position.y) > BOX_SCALE / 2){
+            newParticle.position.y = BOX_SCALE / 2 * sign(newParticle.position.y);
+            newParticle.velocity_half.y *= -1 * BOX_INFLUENCE;
+        }
 	}
+	newParticle.velocity_half_prev = newParticle.velocity_half;
 
-	particleWrite[currentParticleIdx] = prevParticle;
-	particlePositions[currentParticleIdx] = prevParticle.position;
+	particleWrite[currentParticleIdx] = newParticle;
+	particlePositions[currentParticleIdx] = newParticle.position;
+	particleRead[currentParticleIdx] = newParticle;
+
+	// particleWrite[currentParticleIdx] = prevParticle;
+	// particlePositions[currentParticleIdx] = prevParticle.position;
 }
 
 #pragma kernel ParticleDensity
