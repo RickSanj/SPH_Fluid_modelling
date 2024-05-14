@@ -15,8 +15,8 @@ public class GPUController : MonoBehaviour {
     [SerializeField]
     ComputeShader particleShader;
 
-    [SerializeField, Range(2, 5000)]
-	int nParticles = 10;
+    // [SerializeField, Range(2, 5000)]
+	int nParticles = 3200;
 
     [SerializeField, Range(1, 10)]
     float WPolyh = 0;
@@ -46,11 +46,11 @@ public class GPUController : MonoBehaviour {
     // [SerializeField, Range(1,100)]
     // int particleMass;
 
-    [SerializeField, Range(0.01f,5)]
-    float boxNormA = 1;
+    // [SerializeField, Range(0.01f,5)]
+    // float boxNormA = 1;
 
-    [SerializeField, Range(0,5)]
-    float boxNormB = 0;
+    // [SerializeField, Range(0,5)]
+    // float boxNormB = 0;
 
     [SerializeField, Range(1,100)]
     float boxSize = 5;
@@ -72,8 +72,8 @@ public class GPUController : MonoBehaviour {
         particleMassID = Shader.PropertyToID("particleMass"),
         viscosityID = Shader.PropertyToID("viscosityCoefficient"),
         restDensityID = Shader.PropertyToID("restDensity"),
-        normAID = Shader.PropertyToID("normA"),
-        normBID = Shader.PropertyToID("normB"),
+        // normAID = Shader.PropertyToID("normA"),
+        // normBID = Shader.PropertyToID("normB"),
         tensionCoefficientID = Shader.PropertyToID("tensionCoefficient"),
         stiffnessCoefficientID = Shader.PropertyToID("stiffnessCoefficient"),
         timeId = Shader.PropertyToID("time");
@@ -118,8 +118,8 @@ public class GPUController : MonoBehaviour {
         particleShader.SetFloat(restDensityID, restDensity);
         particleShader.SetFloat(tensionCoefficientID, tensionCoefficient);
         particleShader.SetFloat(stiffnessCoefficientID, stiffnessCoefficient);
-        particleShader.SetFloat(normAID, boxNormA);
-        particleShader.SetFloat(normBID, boxNormB);
+        // particleShader.SetFloat(normAID, boxNormA);
+        // particleShader.SetFloat(normBID, boxNormB);
         particleShader.SetFloat(boxSizeID, boxSize);
         particleShader.SetFloat(boxCoeffID, boxCoeff);
 
@@ -127,7 +127,6 @@ public class GPUController : MonoBehaviour {
         Integrate();
 
         material.SetBuffer(positionsId, positionsBuffer);
-
         var bounds = new Bounds(Vector3.zero, Vector3.one * boxSize);
         Graphics.DrawMeshInstancedProcedural(mesh, 0, material, bounds, positionsBuffer.count);
     }  
