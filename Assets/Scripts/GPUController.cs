@@ -210,7 +210,7 @@ public class GPUController : MonoBehaviour
         //     Debug.Log("Pair:"+newPairs[i,0]+";"+newPairs[i,1]);
         // }
 
-        // if(frame > 6)
+        // if(frame > 4)
         // {
         //     Debug.Break();
         // }
