@@ -390,15 +390,15 @@ MonoBehaviour:
   mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
   particleShader: {fileID: 7200000, guid: 86dadde19ce4d7f1eac51fe84e12dfa8, type: 3}
   WPolyh: 8
-  WSpikyh: 8
-  WVisch: 8
-  viscosity: 8
-  restDensity: 4
-  stiffnessCoefficient: 11
-  tensionCoefficient: 8.5
-  gravityStrength: 13
+  WSpikyh: 7
+  WVisch: 7
+  viscosity: 6
+  restDensity: 2.5
+  stiffnessCoefficient: 5
+  tensionCoefficient: 7
+  gravityStrength: 15
   timeStep: 0
-  boxSize: 130
+  boxSize: 122
   boxCoeff: 0.4
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

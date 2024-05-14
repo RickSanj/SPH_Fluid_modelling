@@ -22,7 +22,7 @@ public class GPUController : MonoBehaviour
     ComputeShader particleShader;
 
     // [SerializeField, Range(2, 5000)]
-	int nParticles = 3200;
+	int nParticles = 4800;
 
     [SerializeField, Range(1, 10)]
     float WPolyh = 0;
