@@ -63,8 +63,8 @@ uint2 GetCoordsFromPos(uint pId)
 	Particle particle = particleRead[pId];
 
 	float cellSize = boxSize/(float)cellsResolution;
-	uint xCoord = abs(floor((particle.position.x + boxSize/2) / cellSize));
-	uint yCoord = abs(floor((particle.position.y + boxSize/2) / cellSize));
+	uint xCoord = floor((particle.position.x + boxSize/2) / cellSize);
+	uint yCoord = floor((particle.position.y + boxSize/2) / cellSize);
 
 	return uint2(xCoord, yCoord);
 }
@@ -181,14 +181,14 @@ float3 GetGravityAtParticle(uint3 id)
 float3 GetTensionNorm(uint3 id, uint neighbour)
 {
 	uint currentParticleIdx = id.x;
-	float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[particlesCellsWrite[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsRead[neighbour].y].density, 0.0001);
+	float3 normContribution = WPolyGradient(particleRead[currentParticleIdx].position - particleRead[particlesCellsRead[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsRead[neighbour].y].density, 0.0001);
 	return -normContribution;
 }
 
 float GetTensionLaplacian(uint3 id, uint neighbour)
 {
 	uint currentParticleIdx = id.x;
-	float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[particlesCellsRead[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsWrite[neighbour].y].density, 0.0001);
+	float laplacianContribution = WPolyLaplace(particleRead[currentParticleIdx].position - particleRead[particlesCellsRead[neighbour].y].position, WPolyh)/max(particleRead[particlesCellsRead[neighbour].y].density, 0.0001);
 
 	return laplacianContribution;
 }
@@ -305,7 +305,7 @@ float3 CalculateAcceleration(uint3 particleId)
 	newNorm *= particleMass;
 	newLaplacian *= particleMass;
 
-	particlesCellsRead[currentParticleIdx] = uint2(cellLeftStartIdx, cellRightEndIdx);
+	// particlesCellsRead[currentParticleIdx] = uint2(cellLeftStartIdx, cellRightEndIdx);
 
 	// float3 newPressure = GetPressureAtParticle(currentParticle, currentParticleIdx);
 	// float3 newViscosity = GetViscosityAtParticle(currentParticle, currentParticleIdx);
@@ -328,7 +328,7 @@ void ParticleLoop(uint3 id : SV_DispatchThreadID)
 	if(frame == 0)
 	{
 		prevParticle.velocity = float3(0.0,0.0,0.0);
-		prevParticle.position = float3(pcgf(currentParticleIdx) * 40-15, pcgf(currentParticleIdx+7) * 10-10, 0.0);
+		prevParticle.position = float3(pcgf(currentParticleIdx) * 80-20, pcgf(currentParticleIdx+7) * 30, 0.0);
 		prevParticle.density = 1;
 
 		particleRead[currentParticleIdx] = prevParticle;
@@ -380,7 +380,6 @@ void ParticleDensity(uint3 id : SV_DispatchThreadID)
 }
 
 uint nParticlesPerThread;
-
 //Count how many particles are in each cell
 #pragma kernel CountCells
 [numthreads(64,1,1)]

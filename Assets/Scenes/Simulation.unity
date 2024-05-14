@@ -398,7 +398,7 @@ MonoBehaviour:
   tensionCoefficient: 5.5
   gravityStrength: 13
   timeStep: 0
-  boxSize: 100
+  boxSize: 130
   boxCoeff: 0.4
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

@@ -22,7 +22,7 @@ public class GPUController : MonoBehaviour
     ComputeShader particleShader;
 
     // [SerializeField, Range(2, 5000)]
-	int nParticles = 128;
+	int nParticles = 3200;
 
     [SerializeField, Range(1, 10)]
     float WPolyh = 0;
@@ -55,16 +55,16 @@ public class GPUController : MonoBehaviour
     // [SerializeField, Range(0,5)]
     // float boxNormB = 0;
 
-    [SerializeField, Range(1,100)]
+    [SerializeField, Range(1,150)]
     float boxSize = 5;
 
     [SerializeField, Range(0,20)]
     float boxCoeff = 1f;
 
     int cellsResolution = 64;
-    int cellsRadius = 15;
+    int cellsRadius = 10;
     int nParticlesPerThread = 1;
-    int nCellsPerThread = 1;
+    int nCellsPerThread = 2;
 
     static readonly int
         cellsResolutionID = Shader.PropertyToID("cellsResolution"),
@@ -290,14 +290,15 @@ public class GPUController : MonoBehaviour
         particleShader.SetInt(nCellsPerThreadID, nCellsPerThread);
 
         Integrate();
-        ClearCounters();
-        SortParticles();
-        CalculateDensity();
 
         material.SetBuffer(positionsId, positionsBuffer);
 
         var bounds = new Bounds(Vector3.zero, Vector3.one * boxSize);
         Graphics.DrawMeshInstancedProcedural(mesh, 0, material, bounds, positionsBuffer.count);
+
+        ClearCounters();
+        SortParticles();
+        CalculateDensity();
     }  
 
     void OnDrawGizmos()
@@ -305,6 +306,23 @@ public class GPUController : MonoBehaviour
         var bounds = Vector3.one * (boxSize);
         Gizmos.color = Color.red;
         Gizmos.DrawWireCube(Vector3.zero, bounds);
+
+        Gizmos.color = Color.blue;
+        float cellSize = boxSize/(float)cellsResolution;
+
+        for(int y = -cellsResolution/2; y < cellsResolution/2; y++)
+        {
+            Vector3 start = new Vector3(-boxSize/2, y*cellSize, 0);
+            Vector3 end = new Vector3(boxSize/2, y*cellSize, 0);
+            Gizmos.DrawLine(start, end);
+        }
+
+        for(int x = -cellsResolution/2; x < cellsResolution/2; x++)
+        {
+            Vector3 start = new Vector3(x*cellSize, -boxSize/2, 0);
+            Vector3 end = new Vector3(x*cellSize , boxSize/2, 0);
+            Gizmos.DrawLine(start, end);
+        }
     }  
 
     void OnEnable() {
