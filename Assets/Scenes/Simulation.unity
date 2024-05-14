@@ -392,16 +392,14 @@ MonoBehaviour:
   WPolyh: 8
   WSpikyh: 8
   WVisch: 8
-  viscosity: 8.05
-  restDensity: 8.57
-  stiffnessCoefficient: 11.3
-  tensionCoefficient: 8.72
+  viscosity: 5.5
+  restDensity: 4
+  stiffnessCoefficient: 11
+  tensionCoefficient: 5.5
   gravityStrength: 13
   timeStep: 0
-  boxNormA: 3
-  boxNormB: 2.5
-  boxSize: 50
-  boxCoeff: 0.55
+  boxSize: 100
+  boxCoeff: 0.4
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

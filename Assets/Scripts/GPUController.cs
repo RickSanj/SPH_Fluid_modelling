@@ -8,7 +8,6 @@ public class GPUController : MonoBehaviour
 
     ComputeBuffer particleCellsRead;
     ComputeBuffer particleCellsWrite;
-    ComputeBuffer fixedParticleToCell;
     ComputeBuffer cellsStartIndices;
     ComputeBuffer cellCounters;
     ComputeBuffer cellToOffset;
@@ -23,7 +22,7 @@ public class GPUController : MonoBehaviour
     ComputeShader particleShader;
 
     // [SerializeField, Range(2, 5000)]
-	int nParticles = 320;
+	int nParticles = 128;
 
     [SerializeField, Range(1, 10)]
     float WPolyh = 0;
@@ -50,11 +49,11 @@ public class GPUController : MonoBehaviour
     [SerializeField, Range(0,3)]
     float timeStep;
 
-    [SerializeField, Range(0.01f,5)]
-    float boxNormA = 1;
+    // [SerializeField, Range(0.01f,5)]
+    // float boxNormA = 1;
 
-    [SerializeField, Range(0,5)]
-    float boxNormB = 0;
+    // [SerializeField, Range(0,5)]
+    // float boxNormB = 0;
 
     [SerializeField, Range(1,100)]
     float boxSize = 5;
@@ -65,14 +64,13 @@ public class GPUController : MonoBehaviour
     int cellsResolution = 64;
     int cellsRadius = 15;
     int nParticlesPerThread = 1;
-    int nCellsPerThread = 8;
+    int nCellsPerThread = 1;
 
     static readonly int
         cellsResolutionID = Shader.PropertyToID("cellsResolution"),
         cellsRadiusId = Shader.PropertyToID("cellsRadius"),
         particlesCellsReadID = Shader.PropertyToID("particlesCellsRead"),
         particlesCellsWriteID = Shader.PropertyToID("particlesCellsWrite"),
-        fixedParticleToCellID = Shader.PropertyToID("fixedParticleToCell"),
         cellsStartIndicesID = Shader.PropertyToID("cellsStartIndices"),
         cellToOffsetID = Shader.PropertyToID("cellToOffset"),
         cellCountersID = Shader.PropertyToID("cellCounters"),
@@ -82,8 +80,8 @@ public class GPUController : MonoBehaviour
 		nParticlesID = Shader.PropertyToID("nParticles"),
         frameID = Shader.PropertyToID("frame"),
         gravityID = Shader.PropertyToID("gravityVector"),
-        boxSizeID = Shader.PropertyToID("BOX_SCALE"),
-        boxCoeffID = Shader.PropertyToID("BOX_INFLUENCE"),
+        boxSizeID = Shader.PropertyToID("boxSize"),
+        boxCoeffID = Shader.PropertyToID("boxInfluence"),
         WPolyhID = Shader.PropertyToID("WPolyh"),
         WSpikyhID = Shader.PropertyToID("WSpikyh"),
         WVischID = Shader.PropertyToID("WVisch"),
@@ -91,8 +89,8 @@ public class GPUController : MonoBehaviour
         particleMassID = Shader.PropertyToID("particleMass"),
         viscosityID = Shader.PropertyToID("viscosityCoefficient"),
         restDensityID = Shader.PropertyToID("restDensity"),
-        normAID = Shader.PropertyToID("normA"),
-        normBID = Shader.PropertyToID("normB"),
+        // normAID = Shader.PropertyToID("normA"),
+        // normBID = Shader.PropertyToID("normB"),
         tensionCoefficientID = Shader.PropertyToID("tensionCoefficient"),
         stiffnessCoefficientID = Shader.PropertyToID("stiffnessCoefficient"),
         timeId = Shader.PropertyToID("time");
@@ -187,7 +185,6 @@ public class GPUController : MonoBehaviour
 
     void Integrate()
     {
-        particleShader.SetBuffer(ParticleIntegrationKernel, fixedParticleToCellID, fixedParticleToCell);
         particleShader.SetBuffer(ParticleIntegrationKernel, cellsStartIndicesID, cellsStartIndices);
         particleShader.SetBuffer(ParticleIntegrationKernel, cellCountersID, cellCounters);
 
@@ -200,6 +197,23 @@ public class GPUController : MonoBehaviour
 
         int nGroups = Mathf.CeilToInt(nParticles / 64.0f);
 		particleShader.Dispatch(ParticleIntegrationKernel, nGroups, 1, 1);
+
+        frame++;
+
+        // Debug.Log("-------------------------------------------------------------");
+
+        // int[,] newPairs = new int[nParticles,2];
+        // particleCellsWrite.GetData(newPairs);
+
+        // for(int i = 0; i < nParticles; i++)
+        // {
+        //     Debug.Log("Pair:"+newPairs[i,0]+";"+newPairs[i,1]);
+        // }
+
+        // if(frame > 6)
+        // {
+        //     Debug.Break();
+        // }
 
         // Debug.Log("-------------------------------------------------------------");
 
@@ -231,12 +245,10 @@ public class GPUController : MonoBehaviour
         //     Debug.Log("Acceleration :"+newAccelerations[i,0]+";"+newAccelerations[i,1]+";"+newAccelerations[i,2]);
         // }
 
-        frame++;
     } 
 
     void CalculateDensity()
     {
-        particleShader.SetBuffer(ParticleDensityCalculationKernel, fixedParticleToCellID, fixedParticleToCell);
         particleShader.SetBuffer(ParticleDensityCalculationKernel, cellsStartIndicesID, cellsStartIndices);
         particleShader.SetBuffer(ParticleDensityCalculationKernel, cellCountersID, cellCounters);
 
@@ -267,13 +279,13 @@ public class GPUController : MonoBehaviour
         particleShader.SetFloat(restDensityID, restDensity);
         particleShader.SetFloat(tensionCoefficientID, tensionCoefficient);
         particleShader.SetFloat(stiffnessCoefficientID, stiffnessCoefficient);
-        particleShader.SetFloat(normAID, boxNormA);
-        particleShader.SetFloat(normBID, boxNormB);
+        // particleShader.SetFloat(normAID, boxNormA);
+        // particleShader.SetFloat(normBID, boxNormB);
         particleShader.SetFloat(boxSizeID, boxSize);
         particleShader.SetFloat(boxCoeffID, boxCoeff);
 
         particleShader.SetInt(cellsResolutionID, cellsResolution);
-        particleShader.SetInt(cellsRadius, cellsRadius);
+        particleShader.SetInt(cellsRadiusId, cellsRadius);
         particleShader.SetInt(nParticlesPerThreadID, nParticlesPerThread);
         particleShader.SetInt(nCellsPerThreadID, nCellsPerThread);
 
@@ -306,7 +318,6 @@ public class GPUController : MonoBehaviour
 
         particleCellsRead = new ComputeBuffer(nParticles, 2 * intSize);
         particleCellsWrite = new ComputeBuffer(nParticles, 2 * intSize);
-        fixedParticleToCell = new ComputeBuffer(nParticles, 2 * intSize);
         cellsStartIndices = new ComputeBuffer(nCells, intSize);
         cellToOffset = new ComputeBuffer(nCells, intSize);
         cellCounters = new ComputeBuffer(nCells, intSize);
@@ -336,9 +347,6 @@ public class GPUController : MonoBehaviour
 
         particleCellsWrite.Release();
         particleCellsWrite = null;
-
-        fixedParticleToCell.Release();
-        fixedParticleToCell = null;
 
         cellsStartIndices.Release();
         cellsStartIndices = null;
